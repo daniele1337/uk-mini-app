@@ -16,11 +16,10 @@ import {
 } from 'lucide-react'
 
 const Login = () => {
-  const { login } = useAuth()
+  const { user, needsRegistration, completeRegistration } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [showProfileForm, setShowProfileForm] = useState(false)
-  const [telegramData, setTelegramData] = useState(null)
+  const [error, setError] = useState('')
   const [profileData, setProfileData] = useState({
     apartment: '',
     building: '',
@@ -30,58 +29,28 @@ const Login = () => {
   })
 
   useEffect(() => {
-    // Проверяем, доступен ли Telegram Web App
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp
-      tg.ready()
-      
-      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        setTelegramData(tg.initDataUnsafe.user)
-        handleTelegramAuth(tg.initDataUnsafe.user)
-      }
+    // Если пользователь уже зарегистрирован, перенаправляем на главную
+    if (user && !needsRegistration) {
+      navigate('/')
     }
-  }, [])
-
-  const handleTelegramAuth = async (userData) => {
-    setLoading(true)
-    try {
-      const response = await api.post('/auth/telegram', userData)
-      
-      if (response.data.success) {
-        login(response.data.token, response.data.user)
-        
-        // Если у пользователя нет адреса, показываем форму профиля
-        if (!response.data.user.apartment || !response.data.user.building || !response.data.user.street) {
-          setShowProfileForm(true)
-        } else {
-          navigate('/')
-        }
-      }
-    } catch (error) {
-      console.error('Telegram auth error:', error)
-      alert('Ошибка авторизации через Telegram')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [user, needsRegistration, navigate])
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
 
     try {
-      const token = localStorage.getItem('token')
-      const response = await api.put('/users/profile', profileData, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const result = await completeRegistration(profileData)
       
-      if (response.data.success) {
-        setShowProfileForm(false)
+      if (result.success) {
         navigate('/')
+      } else {
+        setError(result.error || 'Ошибка регистрации')
       }
     } catch (error) {
-      console.error('Profile update error:', error)
-      alert('Ошибка обновления профиля')
+      console.error('Registration error:', error)
+      setError('Ошибка подключения к серверу. Проверьте интернет-соединение.')
     } finally {
       setLoading(false)
     }
@@ -90,6 +59,7 @@ const Login = () => {
   const handleManualLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
 
     try {
       // Симуляция входа для тестирования
@@ -109,17 +79,21 @@ const Login = () => {
       }
 
       const mockToken = 'mock_token_' + Date.now()
-      login(mockToken, mockUser)
-      navigate('/')
+      localStorage.setItem('token', mockToken)
+      localStorage.setItem('testUser', JSON.stringify(mockUser))
+      
+      // Перезагружаем страницу для применения изменений
+      window.location.reload()
     } catch (error) {
       console.error('Login error:', error)
-      alert('Ошибка входа')
+      setError('Ошибка входа')
     } finally {
       setLoading(false)
     }
   }
 
-  if (showProfileForm) {
+  // Если нужна регистрация, показываем форму профиля
+  if (needsRegistration) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
@@ -129,6 +103,12 @@ const Login = () => {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Завершите регистрацию</h2>
               <p className="text-gray-600">Укажите ваш адрес для завершения регистрации</p>
             </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
 
             <form onSubmit={handleProfileSubmit} className="space-y-4">
               <div>
@@ -228,44 +208,29 @@ const Login = () => {
             <p className="text-gray-600">Войдите в систему для доступа к функциям</p>
           </div>
 
-          {telegramData ? (
-            <div className="text-center">
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  Обнаружен Telegram Web App
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  {telegramData.first_name} {telegramData.last_name}
-                </p>
-              </div>
-              
-              <button
-                onClick={() => handleTelegramAuth(telegramData)}
-                disabled={loading}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold mb-4"
-              >
-                {loading ? 'Вход...' : 'Войти через Telegram'}
-              </button>
-            </div>
-          ) : (
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-4">
-                Для использования приложения откройте его в Telegram
-              </p>
-              
-              <button
-                onClick={handleManualLogin}
-                disabled={loading}
-                className="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors font-semibold"
-              >
-                {loading ? 'Вход...' : 'Тестовый вход'}
-              </button>
-              
-              <p className="text-xs text-gray-500 mt-4">
-                Тестовый режим для разработки
-              </p>
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
+
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-4">
+              Для использования приложения откройте его в Telegram
+            </p>
+            
+            <button
+              onClick={handleManualLogin}
+              disabled={loading}
+              className="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors font-semibold"
+            >
+              {loading ? 'Вход...' : 'Тестовый вход'}
+            </button>
+            
+            <p className="text-xs text-gray-500 mt-4">
+              Тестовый режим для разработки
+            </p>
+          </div>
         </div>
       </div>
     </div>

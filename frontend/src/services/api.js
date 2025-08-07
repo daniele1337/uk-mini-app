@@ -1,9 +1,19 @@
 import axios from 'axios'
 import mockApi from './mockApi'
 
+// Определяем базовый URL в зависимости от окружения
+const getBaseURL = () => {
+  // В продакшене используем реальный сервер
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://217.199.252.227/api' // IP вашего сервера TimeWeb
+  }
+  // В разработке используем localhost
+  return 'http://localhost:8000/api'
+}
+
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
-  timeout: 10000,
+  baseURL: getBaseURL(),
+  timeout: 15000, // Увеличиваем таймаут
   headers: {
     'Content-Type': 'application/json',
   },

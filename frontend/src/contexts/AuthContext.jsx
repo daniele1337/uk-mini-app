@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }) => {
     return savedUser ? JSON.parse(savedUser) : null
   })
   const [loading, setLoading] = useState(true)
+  const [needsRegistration, setNeedsRegistration] = useState(false)
 
   useEffect(() => {
     const initAuth = async () => {
@@ -27,20 +28,68 @@ export const AuthProvider = ({ children }) => {
         if (window.Telegram && window.Telegram.WebApp && typeof WebApp !== 'undefined') {
           const tgUser = WebApp.initDataUnsafe?.user
           if (tgUser) {
-            // Проверяем/создаем пользователя в базе
-            const response = await api.post('/auth/telegram', {
-              telegram_id: tgUser.id,
-              first_name: tgUser.first_name,
-              last_name: tgUser.last_name,
-              username: tgUser.username
-            })
+            console.log('Telegram user detected:', tgUser)
             
-            if (response.data.success) {
-              setUser(response.data.user)
+            // Пытаемся авторизовать пользователя
+            try {
+              const response = await api.post('/auth/telegram', {
+                telegram_id: tgUser.id.toString(),
+                first_name: tgUser.first_name,
+                last_name: tgUser.last_name,
+                username: tgUser.username
+              })
+              
+              if (response.data.success) {
+                setUser(response.data.user)
+                localStorage.setItem('token', response.data.token)
+                
+                // Проверяем, нужна ли регистрация (нет адреса)
+                if (!response.data.user.apartment || !response.data.user.building || !response.data.user.street) {
+                  setNeedsRegistration(true)
+                }
+              }
+            } catch (authError) {
+              console.error('Auth error:', authError)
+              
+              // Если пользователь не найден, создаем нового
+              if (authError.response?.status === 404) {
+                setNeedsRegistration(true)
+                // Создаем временного пользователя для регистрации
+                const tempUser = {
+                  telegram_id: tgUser.id.toString(),
+                  first_name: tgUser.first_name,
+                  last_name: tgUser.last_name,
+                  username: tgUser.username
+                }
+                setUser(tempUser)
+              } else {
+                // Другие ошибки - используем тестового пользователя
+                const testUser = {
+                  id: 1,
+                  telegram_id: '123456789',
+                  first_name: 'Тестовый',
+                  last_name: 'Пользователь',
+                  username: 'test_user'
+                }
+                setUser(testUser)
+                localStorage.setItem('testUser', JSON.stringify(testUser))
+              }
             }
+          } else {
+            // Нет данных Telegram - используем тестового пользователя
+            console.log('No Telegram user data, using test mode')
+            const testUser = {
+              id: 1,
+              telegram_id: '123456789',
+              first_name: 'Тестовый',
+              last_name: 'Пользователь',
+              username: 'test_user'
+            }
+            setUser(testUser)
+            localStorage.setItem('testUser', JSON.stringify(testUser))
           }
         } else {
-          // Для тестирования в браузере - создаем тестового пользователя
+          // Telegram Web App недоступен - используем тестового пользователя
           console.log('Telegram Web App not available, using test mode')
           const testUser = {
             id: 1,
@@ -50,11 +99,10 @@ export const AuthProvider = ({ children }) => {
             username: 'test_user'
           }
           setUser(testUser)
-          // Сохраняем в localStorage для стабильности
           localStorage.setItem('testUser', JSON.stringify(testUser))
         }
       } catch (error) {
-        console.error('Auth error:', error)
+        console.error('Auth initialization error:', error)
         // В случае ошибки также создаем тестового пользователя
         const testUser = {
           id: 1,
@@ -96,6 +144,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null)
+    setNeedsRegistration(false)
     localStorage.removeItem('testUser')
     localStorage.removeItem('token')
     try {
@@ -112,19 +161,79 @@ export const AuthProvider = ({ children }) => {
       const response = await api.put(`/users/${user.id}`, profileData)
       if (response.data.success) {
         setUser(response.data.user)
+        setNeedsRegistration(false)
         return { success: true }
       }
     } catch (error) {
-      return { success: false, error: error.response?.data?.message || 'Ошибка обновления' }
+      console.error('Profile update error:', error)
+      return { success: false, error: error.response?.data?.message || 'Ошибка обновления профиля' }
+    }
+  }
+
+  const completeRegistration = async (profileData) => {
+    try {
+      console.log('Starting registration with data:', profileData)
+      
+      // Если у пользователя есть ID, обновляем профиль
+      if (user.id) {
+        console.log('Updating existing user profile')
+        return await updateProfile(profileData)
+      } else {
+        // Если это новый пользователь, создаем его
+        console.log('Creating new user with telegram data:', user)
+        const response = await api.post('/auth/telegram', {
+          ...user,
+          ...profileData
+        })
+        
+        console.log('Registration response:', response.data)
+        
+        if (response.data.success) {
+          setUser(response.data.user)
+          setNeedsRegistration(false)
+          localStorage.setItem('token', response.data.token)
+          return { success: true }
+        } else {
+          return { success: false, error: response.data.error || 'Ошибка регистрации' }
+        }
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      
+      // Детальная обработка ошибок
+      if (error.response) {
+        // Сервер ответил с ошибкой
+        console.error('Server error:', error.response.status, error.response.data)
+        return { 
+          success: false, 
+          error: error.response.data?.error || `Ошибка сервера: ${error.response.status}` 
+        }
+      } else if (error.request) {
+        // Запрос был отправлен, но ответ не получен
+        console.error('Network error:', error.request)
+        return { 
+          success: false, 
+          error: 'Ошибка подключения к серверу. Проверьте интернет-соединение.' 
+        }
+      } else {
+        // Ошибка при настройке запроса
+        console.error('Request setup error:', error.message)
+        return { 
+          success: false, 
+          error: 'Ошибка при отправке запроса' 
+        }
+      }
     }
   }
 
   const value = {
     user,
     loading,
+    needsRegistration,
     login,
     logout,
-    updateProfile
+    updateProfile,
+    completeRegistration
   }
 
   return (

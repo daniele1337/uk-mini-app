@@ -12,7 +12,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import './App.css'
 
 function AppContent() {
-  const { user, loading } = useAuth()
+  const { user, loading, needsRegistration } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
@@ -43,15 +43,32 @@ function AppContent() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
-        {user && <Header />}
+        {user && !needsRegistration && <Header />}
         <main className="pb-20">
           <Routes>
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
-            <Route path="/" element={user ? <Home /> : <Navigate to="/login" replace />} />
-            <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" replace />} />
-            <Route path="/meters" element={user ? <Meters /> : <Navigate to="/login" replace />} />
-            <Route path="/complaints" element={user ? <Complaints /> : <Navigate to="/login" replace />} />
-            <Route path="/admin" element={user && isAdmin ? <AdminPanel /> : <Navigate to="/" replace />} />
+            <Route path="/" element={
+              user ? (
+                needsRegistration ? <Navigate to="/register" replace /> : <Home />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            } />
+            <Route path="/register" element={
+              user && needsRegistration ? <Login /> : <Navigate to="/" replace />
+            } />
+            <Route path="/profile" element={
+              user && !needsRegistration ? <Profile /> : <Navigate to="/login" replace />
+            } />
+            <Route path="/meters" element={
+              user && !needsRegistration ? <Meters /> : <Navigate to="/login" replace />
+            } />
+            <Route path="/complaints" element={
+              user && !needsRegistration ? <Complaints /> : <Navigate to="/login" replace />
+            } />
+            <Route path="/admin" element={
+              user && !needsRegistration && isAdmin ? <AdminPanel /> : <Navigate to="/" replace />
+            } />
           </Routes>
         </main>
       </div>

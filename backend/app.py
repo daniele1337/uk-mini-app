@@ -224,10 +224,10 @@ def telegram_auth():
         data = request.get_json()
         
         # Проверяем наличие обязательных полей
-        if not data or 'id' not in data:
+        if not data or 'telegram_id' not in data:
             return jsonify({'error': 'Invalid Telegram data'}), 400
         
-        telegram_id = str(data['id'])
+        telegram_id = str(data['telegram_id'])
         first_name = data.get('first_name', '')
         last_name = data.get('last_name', '')
         username = data.get('username', '')
