@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Быстрый тест сервера</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Тест сервера TimeWeb</h1>
+    
+    <div id="results"></div>
+    
+    <button onclick="testAll()">🔄 Запустить все тесты</button>
+    <button onclick="testHealth()">🏥 Тест /api/health</button>
+    <button onclick="testMainPage()">🏠 Тест главной страницы</button>
+    <button onclick="testSSL()">🔒 Тест SSL ошибок</button>
+    
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        function addResult(title, message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<strong>${title}</strong><br>${message}`;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function testHealth() {
+            try {
+                addResult('Тестируем /api/health...', 'Отправляем запрос...', 'warning');
+                
+                const response = await fetch('http://217.199.252.227/api/health');
+                const data = await response.json();
+                
+                addResult('✅ API Health работает!', 
+                    `Статус: ${response.status}<br>
+                     Данные: ${JSON.stringify(data, null, 2)}`);
+                    
+            } catch (error) {
+                addResult('❌ API Health не работает', 
+                    `Ошибка: ${error.message}<br>
+                     Тип: ${error.name}`, 'error');
+            }
+        }
+        
+        async function testMainPage() {
+            try {
+                addResult('Тестируем главную страницу...', 'Отправляем запрос...', 'warning');
+                
+                const response = await fetch('http://217.199.252.227/');
+                const text = await response.text();
+                
+                if (response.ok) {
+                    addResult('✅ Главная страница работает!', 
+                        `Статус: ${response.status}<br>
+                         Размер: ${text.length} символов<br>
+                         Первые 100 символов: ${text.substring(0, 100)}...`);
+                } else {
+                    addResult('⚠️ Главная страница отвечает с ошибкой', 
+                        `Статус: ${response.status}<br>
+                         Статус текст: ${response.statusText}`, 'warning');
+                }
+                    
+            } catch (error) {
+                addResult('❌ Главная страница не работает', 
+                    `Ошибка: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testSSL() {
+            try {
+                addResult('Тестируем HTTPS...', 'Проверяем SSL сертификат...', 'warning');
+                
+                const response = await fetch('https://217.199.252.227/api/health');
+                const data = await response.json();
+                
+                addResult('✅ HTTPS работает!', 
+                    `SSL сертификат настроен правильно<br>
+                     Статус: ${response.status}`);
+                    
+            } catch (error) {
+                if (error.message.includes('certificate') || error.message.includes('SSL')) {
+                    addResult('⚠️ SSL сертификат не настроен', 
+                        `Ошибка: ${error.message}<br>
+                         Это нормально - мы используем HTTP`, 'warning');
+                } else {
+                    addResult('❌ HTTPS не работает', 
+                        `Ошибка: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function testAll() {
+            resultsDiv.innerHTML = '';
+            addResult('🚀 Запуск всех тестов...', 'Проверяем сервер TimeWeb', 'warning');
+            
+            await testHealth();
+            await testMainPage();
+            await testSSL();
+            
+            addResult('✅ Тестирование завершено!', 
+                'Проверьте результаты выше. Если есть ошибки - сервер может быть недоступен или не обновился.', 'success');
+        }
+        
+        // Автоматически запускаем тесты при загрузке
+        testAll();
+    </script>
+</body>
+</html> 

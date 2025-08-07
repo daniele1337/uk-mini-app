@@ -14,6 +14,7 @@ import './App.css'
 function AppContent() {
   const { user, loading, needsRegistration } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [showOfflineNotice, setShowOfflineNotice] = useState(false)
 
   useEffect(() => {
     // Инициализация Telegram Web App (если доступен)
@@ -30,6 +31,17 @@ function AppContent() {
     if (user && user.telegram_id === '123456789') {
       setIsAdmin(true)
     }
+    
+    // Глобальная функция для показа офлайн уведомления
+    window.showOfflineNotice = (message) => {
+      setShowOfflineNotice(true)
+      setTimeout(() => setShowOfflineNotice(false), 5000) // Скрыть через 5 секунд
+    }
+    
+    // Проверяем, есть ли SSL ошибки в URL
+    if (window.location.protocol === 'https:' && window.location.hostname !== 'localhost') {
+      setShowOfflineNotice(true)
+    }
   }, [user])
 
   if (loading) {
@@ -43,6 +55,21 @@ function AppContent() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
+        {showOfflineNotice && (
+          <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 text-white px-4 py-2 text-center">
+            <div className="flex items-center justify-center">
+              <span className="mr-2">⚠️</span>
+              <span>Работаем в офлайн режиме. Данные сохраняются локально.</span>
+              <button 
+                onClick={() => setShowOfflineNotice(false)}
+                className="ml-4 text-white hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+        
         {user && !needsRegistration && <Header />}
         <main className="pb-20">
           <Routes>

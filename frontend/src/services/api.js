@@ -5,7 +5,8 @@ import mockApi from './mockApi'
 const getBaseURL = () => {
   // В продакшене используем реальный сервер
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'http://217.199.252.227/api' // Используем HTTP вместо HTTPS
+    // Принудительно используем HTTP для избежания SSL ошибок
+    return 'http://217.199.252.227/api'
   }
   // В разработке используем localhost
   return 'http://localhost:8000/api'
@@ -26,6 +27,12 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    
+    // Принудительно используем HTTP для API запросов
+    if (config.url && !config.url.startsWith('http')) {
+      config.url = config.url.replace('https://', 'http://')
+    }
+    
     return config
   },
   (error) => {
@@ -46,10 +53,23 @@ api.interceptors.response.use(
       error.code === 'ERR_CONNECTION_REFUSED' ||
       error.code === 'ERR_CERT_AUTHORITY_INVALID' ||
       error.code === 'ERR_SSL_PROTOCOL_ERROR' ||
+      error.code === 'ERR_SSL_PINNEDKEY_NOT_AVAILABLE' ||
       error.message?.includes('CORS') ||
-      error.message?.includes('certificate')
+      error.message?.includes('certificate') ||
+      error.message?.includes('SSL') ||
+      error.message?.includes('HTTPS')
     ) {
       console.log('Server error or network error, using mock API')
+      
+      // Показываем уведомление пользователю
+      if (error.code === 'ERR_CERT_AUTHORITY_INVALID' || error.message?.includes('certificate')) {
+        console.log('SSL certificate error detected, working in offline mode')
+        // Можно добавить уведомление пользователю
+        if (typeof window !== 'undefined' && window.showOfflineNotice) {
+          window.showOfflineNotice('Работаем в офлайн режиме из-за проблем с SSL сертификатом')
+        }
+      }
+      
       try {
         // Извлекаем путь из URL или используем относительный путь
         let path

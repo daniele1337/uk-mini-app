@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест SSL проблемы</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Диагностика SSL проблемы</h1>
+    
+    <div class="test">
+        <h3>Проблема:</h3>
+        <p>Браузер пытается открыть HTTPS вместо HTTP, что вызывает SSL ошибку.</p>
+    </div>
+    
+    <div class="test warning">
+        <h3>Решение 1: Принудительно использовать HTTP</h3>
+        <p>Нажмите кнопку ниже, чтобы открыть сайт по HTTP:</p>
+        <button onclick="openHttp()">🌐 Открыть HTTP версию</button>
+        <button onclick="openHttps()">🔒 Открыть HTTPS версию</button>
+    </div>
+    
+    <div class="test">
+        <h3>Решение 2: Проверить редирект</h3>
+        <p>Возможно, сервер автоматически перенаправляет на HTTPS. Проверим:</p>
+        <button onclick="checkRedirect()">🔄 Проверить редирект</button>
+        <div id="redirectResult"></div>
+    </div>
+    
+    <div class="test">
+        <h3>Решение 3: Настройки браузера</h3>
+        <p>Если проблема в браузере:</p>
+        <ul>
+            <li>В адресной строке введите: <code>http://217.199.252.227</code></li>
+            <li>Не используйте <code>https://</code></li>
+            <li>Если браузер автоматически добавляет https, введите <code>http://</code> вручную</li>
+        </ul>
+    </div>
+    
+    <script>
+        function openHttp() {
+            window.open('http://217.199.252.227', '_blank');
+        }
+        
+        function openHttps() {
+            window.open('https://217.199.252.227', '_blank');
+        }
+        
+        async function checkRedirect() {
+            const resultDiv = document.getElementById('redirectResult');
+            resultDiv.innerHTML = 'Проверяем...';
+            
+            try {
+                const response = await fetch('http://217.199.252.227', {
+                    method: 'HEAD',
+                    redirect: 'manual'
+                });
+                
+                if (response.status === 301 || response.status === 302) {
+                    const location = response.headers.get('location');
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>⚠️ Обнаружен редирект!</strong><br>
+                            Статус: ${response.status}<br>
+                            Перенаправление на: ${location}<br>
+                            <strong>Решение:</strong> Сервер автоматически перенаправляет на HTTPS
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ HTTP работает!</strong><br>
+                            Статус: ${response.status}<br>
+                            Редиректа нет
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Ошибка подключения</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // Автоматически проверяем при загрузке
+        checkRedirect();
+    </script>
+</body>
+</html> 
