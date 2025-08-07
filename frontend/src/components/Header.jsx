@@ -1,71 +1,102 @@
-import React from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { Home, User, Zap, MessageSquare, Settings, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { 
+  Home, 
+  User, 
+  Activity, 
+  MessageSquare, 
+  Settings, 
+  LogOut,
+  Wifi,
+  WifiOff
+} from 'lucide-react'
 
 const Header = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [showOfflineNotice, setShowOfflineNotice] = useState(false)
 
-  const navItems = [
-    { path: '/', icon: Home, label: 'Главная' },
-    { path: '/meters', icon: Zap, label: 'Счетчики' },
-    { path: '/complaints', icon: MessageSquare, label: 'Обращения' },
-    { path: '/profile', icon: User, label: 'Профиль' },
-  ]
+  // Проверяем, работает ли приложение в офлайн режиме
+  React.useEffect(() => {
+    const checkOnlineStatus = () => {
+      const isOffline = !navigator.onLine || localStorage.getItem('offlineMode') === 'true'
+      setShowOfflineNotice(isOffline)
+    }
 
-  const isActive = (path) => location.pathname === path
+    checkOnlineStatus()
+    window.addEventListener('online', checkOnlineStatus)
+    window.addEventListener('offline', checkOnlineStatus)
+
+    return () => {
+      window.removeEventListener('online', checkOnlineStatus)
+      window.removeEventListener('offline', checkOnlineStatus)
+    }
+  }, [])
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
-    <div className="bg-white shadow-sm border-b">
-      <div className="max-w-md mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-gray-900">
-              УК Mini App
-            </h1>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            {user && (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">
-                  {user.first_name}
-                </span>
-                <button
-                  onClick={logout}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <LogOut size={20} />
-                </button>
-              </div>
-            )}
+    <>
+      {showOfflineNotice && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2">
+          <div className="flex items-center justify-center text-sm text-yellow-800">
+            <WifiOff className="w-4 h-4 mr-2" />
+            Работаем в офлайн режиме. Данные сохраняются локально.
           </div>
         </div>
-        
-        {/* Нижняя навигация */}
-        <div className="flex justify-around py-2">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            return (
+      )}
+      
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-semibold text-gray-900">УК Mini App</h1>
+            </div>
+            
+            <div className="flex items-center space-x-4">
               <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
-                  isActive(item.path)
-                    ? 'text-primary-600 bg-primary-50'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                onClick={() => navigate('/')}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <Icon size={20} />
-                <span className="text-xs">{item.label}</span>
+                <Home className="w-5 h-5" />
               </button>
-            )
-          })}
+              
+              <button
+                onClick={() => navigate('/meters')}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Activity className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={() => navigate('/complaints')}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={() => navigate('/profile')}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <User className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </header>
+    </>
   )
 }
 

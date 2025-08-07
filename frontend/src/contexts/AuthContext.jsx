@@ -51,6 +51,13 @@ export const AuthProvider = ({ children }) => {
             } catch (authError) {
               console.error('Auth error:', authError)
               
+              // Показываем уведомление о работе в офлайн режиме
+              if (authError.code === 'ERR_CERT_AUTHORITY_INVALID' || 
+                  authError.code === 'ERR_NETWORK' || 
+                  authError.message?.includes('certificate')) {
+                console.log('Working in offline mode due to SSL/certificate issues')
+              }
+              
               // Если пользователь не найден, создаем нового
               if (authError.response?.status === 404) {
                 setNeedsRegistration(true)
