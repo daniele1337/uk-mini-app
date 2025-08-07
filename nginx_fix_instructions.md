@@ -19,28 +19,34 @@ cat default
 cat uk-mini-app  # если есть такой файл
 ```
 
-### 4. Найдите строки HTTPS редиректа:
-Ищите строки типа:
-```nginx
-return 301 https://$server_name$request_uri;
-rewrite ^(.*) https://$host$1 permanent;
-```
+### 4. Загрузите и запустите скрипт исправления:
 
-### 5. Закомментируйте эти строки:
-Добавьте `#` в начало строки:
-```nginx
-# return 301 https://$server_name$request_uri;
-# rewrite ^(.*) https://$host$1 permanent;
-```
-
-### 6. Проверьте конфигурацию:
+**Способ 1 - Через wget:**
 ```bash
-nginx -t
+wget https://raw.githubusercontent.com/daniele1337/uk-mini-app/main/fix_ssl_redirect.sh
+chmod +x fix_ssl_redirect.sh
+sudo bash fix_ssl_redirect.sh
 ```
 
-### 7. Перезапустите nginx:
+**Способ 2 - Скопируйте скрипт вручную:**
 ```bash
-systemctl reload nginx
+nano fix_ssl_redirect.sh
+# Вставьте содержимое скрипта и сохраните (Ctrl+X, Y, Enter)
+chmod +x fix_ssl_redirect.sh
+sudo bash fix_ssl_redirect.sh
+```
+
+**Способ 3 - Запустите команды напрямую:**
+```bash
+# Создаем резервную копию
+cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup.$(date +%Y%m%d_%H%M%S)
+
+# Закомментируем строки редиректа
+sed -i 's/^\([[:space:]]*return[[:space:]]+301[[:space:]]+https:\/\/.*\)$/#\1/' /etc/nginx/sites-available/default
+sed -i 's/^\([[:space:]]*rewrite[[:space:]]+.*https:\/\/.*\)$/#\1/' /etc/nginx/sites-available/default
+
+# Проверяем и перезапускаем
+nginx -t && systemctl reload nginx
 ```
 
 ## 🔍 Что искать в файлах:
