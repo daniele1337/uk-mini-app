@@ -14,7 +14,9 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_restarts: 10,
-      min_uptime: '10s'
+      min_uptime: '10s',
+      error_file: '/var/log/pm2/frontend-error.log',
+      out_file: '/var/log/pm2/frontend-out.log'
     },
     {
       name: 'uk-mini-app-backend',
@@ -30,7 +32,9 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_restarts: 10,
-      min_uptime: '10s'
+      min_uptime: '10s',
+      error_file: '/var/log/pm2/backend-error.log',
+      out_file: '/var/log/pm2/backend-out.log'
     }
   ]
 };
