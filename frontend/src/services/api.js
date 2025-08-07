@@ -37,8 +37,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // Если ошибка 401 или ошибка сети, используем мок API
-    if (error.response?.status === 401 || error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
+    console.log('API Error:', error.code, error.message)
+    
+    // Если ошибка 401, ошибка сети, CORS или SSL - используем мок API
+    if (
+      error.response?.status === 401 || 
+      error.code === 'ERR_NETWORK' || 
+      error.code === 'ERR_CONNECTION_REFUSED' ||
+      error.code === 'ERR_CERT_AUTHORITY_INVALID' ||
+      error.code === 'ERR_SSL_PROTOCOL_ERROR' ||
+      error.message?.includes('CORS') ||
+      error.message?.includes('certificate')
+    ) {
       console.log('Server error or network error, using mock API')
       try {
         // Извлекаем путь из URL или используем относительный путь
