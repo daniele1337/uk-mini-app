@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест сервера</title>
+</head>
+<body>
+    <h1>Тест подключения к серверу</h1>
+    <div id="status">Проверяем...</div>
+    
+    <script>
+        async function testServer() {
+            const statusDiv = document.getElementById('status');
+            
+            try {
+                // Тест 1: Проверка доступности сервера
+                statusDiv.innerHTML = 'Проверяем доступность сервера...';
+                
+                const response = await fetch('http://217.199.252.227/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `
+                        <h3>✅ Сервер работает!</h3>
+                        <p>Статус: ${data.status || 'OK'}</p>
+                        <p>Сообщение: ${data.message || 'Сервер отвечает'}</p>
+                        <p>Время ответа: ${response.headers.get('date')}</p>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <h3>⚠️ Сервер отвечает, но с ошибкой</h3>
+                        <p>Статус: ${response.status}</p>
+                        <p>Статус текст: ${response.statusText}</p>
+                    `;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <h3>❌ Ошибка подключения</h3>
+                    <p>Ошибка: ${error.message}</p>
+                    <p>Тип: ${error.name}</p>
+                    <p>Это означает, что сервер недоступен или есть проблемы с сетью.</p>
+                `;
+            }
+        }
+        
+        // Запускаем тест при загрузке страницы
+        testServer();
+    </script>
+</body>
+</html> 
