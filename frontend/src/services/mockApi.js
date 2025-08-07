@@ -158,17 +158,41 @@ const mockApi = {
     await new Promise(resolve => setTimeout(resolve, 100))
     
     if (url === '/api/auth/telegram' || url === '/auth/telegram') {
+      // Создаем пользователя с данными регистрации
+      const user = {
+        id: Math.floor(Math.random() * 1000) + 1,
+        telegram_id: data.telegram_id,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        username: data.username,
+        apartment: data.apartment || null,
+        building: data.building || null,
+        street: data.street || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        is_admin: false,
+        is_active: true
+      }
+      
+      // Сохраняем в localStorage для имитации базы данных
+      const users = JSON.parse(localStorage.getItem('mockUsers') || '[]')
+      const existingUserIndex = users.findIndex(u => u.telegram_id === data.telegram_id)
+      
+      if (existingUserIndex >= 0) {
+        // Обновляем существующего пользователя
+        users[existingUserIndex] = { ...users[existingUserIndex], ...user }
+      } else {
+        // Добавляем нового пользователя
+        users.push(user)
+      }
+      
+      localStorage.setItem('mockUsers', JSON.stringify(users))
+      
       return {
         data: {
           success: true,
-          user: {
-            id: 1,
-            telegram_id: data.telegram_id,
-            first_name: data.first_name,
-            last_name: data.last_name,
-            username: data.username
-          },
-          token: 'mock-token'
+          user: user,
+          token: 'mock-token-' + Date.now()
         }
       }
     }
@@ -237,17 +261,40 @@ const mockApi = {
     
     await new Promise(resolve => setTimeout(resolve, 100))
     
-    if (url.includes('/api/users/')) {
-      return {
-        data: {
-          success: true,
-          user: {
-            id: 1,
-            telegram_id: '123456789',
-            first_name: 'Тестовый',
-            last_name: 'Пользователь',
-            username: 'test_user',
-            ...data
+    if (url.includes('/api/users/') || url.includes('/users/')) {
+      // Обновляем пользователя в localStorage
+      const users = JSON.parse(localStorage.getItem('mockUsers') || '[]')
+      const userId = parseInt(url.split('/').pop())
+      const userIndex = users.findIndex(u => u.id === userId)
+      
+      if (userIndex >= 0) {
+        // Обновляем существующего пользователя
+        users[userIndex] = { ...users[userIndex], ...data }
+        localStorage.setItem('mockUsers', JSON.stringify(users))
+        
+        return {
+          data: {
+            success: true,
+            user: users[userIndex]
+          }
+        }
+      } else {
+        // Создаем нового пользователя если не найден
+        const newUser = {
+          id: userId,
+          telegram_id: '123456789',
+          first_name: 'Тестовый',
+          last_name: 'Пользователь',
+          username: 'test_user',
+          ...data
+        }
+        users.push(newUser)
+        localStorage.setItem('mockUsers', JSON.stringify(users))
+        
+        return {
+          data: {
+            success: true,
+            user: newUser
           }
         }
       }
