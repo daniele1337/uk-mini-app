@@ -1,61 +1,43 @@
-import axios from 'axios'
-import mockApi from './mockApi'
+import axios from 'axios';
 
+// Создаем экземпляр axios с базовой конфигурацией
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: '/api', // Используем относительный путь для проксирования через Nginx
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
-})
+});
 
-// Перехватчик для добавления токена
+// Добавляем перехватчик для добавления токена авторизации
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return config
+    return config;
   },
   (error) => {
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
-)
+);
 
-// Перехватчик для обработки ошибок и fallback на мок
+// Добавляем перехватчик для обработки ошибок
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    // Если ошибка 401 или ошибка сети, используем мок API
-    if (error.response?.status === 401 || error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
-      console.log('Server error or network error, using mock API')
-      try {
-        // Извлекаем путь из URL или используем относительный путь
-        let path
-        try {
-          const url = new URL(error.config.url)
-          path = url.pathname
-        } catch (urlError) {
-          // Если URL невалидный, используем относительный путь
-          path = error.config.url.startsWith('/') ? error.config.url : `/${error.config.url}`
-        }
-        
-        console.log('Mock API path:', path)
-        
-        const mockResponse = await mockApi[error.config.method.toLowerCase()](
-          path,
-          error.config.data ? JSON.parse(error.config.data) : undefined
-        )
-        return mockResponse
-      } catch (mockError) {
-        console.error('Mock API error:', mockError)
-        return Promise.reject(error)
-      }
+  (response) => {
+    return response;
+  },
+  (error) => {
+    console.error('API Error:', error);
+    
+    // Если сервер недоступен, возвращаем ошибку для fallback
+    if (error.code === 'ERR_NETWORK' || error.response?.status >= 500) {
+      console.log('Server unavailable, using offline mode');
     }
     
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
-)
+);
 
-export default api 
+export default api; 

@@ -35,6 +35,10 @@ const initTelegramWebApp = () => {
 // Инициализируем Telegram Web App при загрузке
 initTelegramWebApp();
 
+// Добавляем версию для принудительного обновления кэша
+const APP_VERSION = '1.0.2';
+console.log(`UK Mini App v${APP_VERSION} loaded`);
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
