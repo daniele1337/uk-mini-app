@@ -31,6 +31,15 @@ api.interceptors.response.use(
   (error) => {
     console.error('API Error:', error);
     
+    // Если ошибка 401 (Unauthorized), перенаправляем на страницу входа
+    if (error.response?.status === 401) {
+      console.log('User not authorized, redirecting to login');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      return Promise.reject(new Error('Unauthorized'));
+    }
+    
     // Если сервер недоступен, возвращаем ошибку для fallback
     if (error.code === 'ERR_NETWORK' || error.response?.status >= 500) {
       console.log('Server unavailable, using offline mode');

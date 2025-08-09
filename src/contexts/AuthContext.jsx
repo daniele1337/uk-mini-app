@@ -71,21 +71,23 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Telegram auth error:', error);
       
-      // Если сервер недоступен, создаем тестового пользователя
+      // Если сервер недоступен, создаем полноценного тестового пользователя
       if (error.message === 'Ошибка подключения к серверу') {
         const testUser = {
-          id: telegramUser.id || 123456789,
+          id: 1,
           telegram_id: telegramUser.id?.toString() || '123456789',
           first_name: telegramUser.first_name || 'Тестовый',
           last_name: telegramUser.last_name || 'Пользователь',
           username: telegramUser.username || 'test_user',
-          apartment: '1',
-          building: '1',
-          street: 'Тестовая улица',
+          apartment: '15',
+          building: '3',
+          street: 'Ленина',
           phone: '+7 (999) 123-45-67',
           email: 'test@example.com',
           is_admin: false,
-          is_active: true
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         };
         
         const testToken = 'test_token_' + Date.now();
@@ -97,6 +99,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', testToken);
         localStorage.setItem('user', JSON.stringify(testUser));
         
+        console.log('Test user created:', testUser);
         navigate('/');
         return { success: true, token: testToken, user: testUser };
       }

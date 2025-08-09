@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Star, Send, Home as HomeIcon, Zap, MessageCircle, User, Settings, Wifi, WifiOff } from 'lucide-react';
 
 const Home = () => {
+  const navigate = useNavigate();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [notifications, setNotifications] = useState([]);
@@ -9,11 +11,19 @@ const Home = () => {
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
+    // Проверяем авторизацию
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, redirecting to login');
+      navigate('/login');
+      return;
+    }
+
     // Проверяем подключение к API
     checkConnection();
     // Загружаем уведомления
     loadNotifications();
-  }, []);
+  }, [navigate]);
 
   const checkConnection = async () => {
     try {
@@ -26,10 +36,21 @@ const Home = () => {
 
   const loadNotifications = async () => {
     try {
-      const response = await fetch('/api/notifications');
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setNotifications(data.notifications || []);
+      } else if (response.status === 401) {
+        console.log('Token expired, redirecting to login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
       }
     } catch (error) {
       console.log('Офлайн режим: уведомления загружены локально');
@@ -40,10 +61,12 @@ const Home = () => {
     if (rating === 0) return;
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/rating', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ rating, comment }),
       });
@@ -52,6 +75,11 @@ const Home = () => {
         setRating(0);
         setComment('');
         alert('Спасибо за ваш отзыв!');
+      } else if (response.status === 401) {
+        console.log('Token expired, redirecting to login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
       }
     } catch (error) {
       alert('Отзыв сохранен локально');
