@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест серверов</title>
+</head>
+<body>
+    <h1>Тест доступности серверов</h1>
+    
+    <h2>Frontend (Vite):</h2>
+    <p>Статус: <span id="frontend-status">Проверяется...</span></p>
+    
+    <h2>Backend (Flask):</h2>
+    <p>Статус: <span id="backend-status">Проверяется...</span></p>
+    
+    <script>
+        // Проверка Frontend
+        fetch('http://localhost:3000/')
+            .then(response => {
+                document.getElementById('frontend-status').textContent = '✅ Работает';
+                document.getElementById('frontend-status').style.color = 'green';
+            })
+            .catch(error => {
+                document.getElementById('frontend-status').textContent = '❌ Ошибка: ' + error.message;
+                document.getElementById('frontend-status').style.color = 'red';
+            });
+        
+        // Проверка Backend
+        fetch('http://localhost:8000/api/health')
+            .then(response => {
+                document.getElementById('backend-status').textContent = '✅ Работает';
+                document.getElementById('backend-status').style.color = 'green';
+            })
+            .catch(error => {
+                document.getElementById('backend-status').textContent = '❌ Ошибка: ' + error.message;
+                document.getElementById('backend-status').style.color = 'red';
+            });
+    </script>
+</body>
+</html> 

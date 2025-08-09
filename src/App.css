@@ -1,0 +1,36 @@
+/* Дополнительные стили для приложения */
+.telegram-button {
+  background: var(--tg-theme-button-color, #0088cc);
+  color: var(--tg-theme-button-text-color, #ffffff);
+}
+
+.telegram-bg {
+  background: var(--tg-theme-bg-color, #ffffff);
+}
+
+.telegram-text {
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.telegram-secondary-text {
+  color: var(--tg-theme-hint-color, #999999);
+}
+
+/* Анимации */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+} 
