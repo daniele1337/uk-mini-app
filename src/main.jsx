@@ -20,22 +20,8 @@ const initTelegramWebApp = () => {
         tg.expand();
       }
       
-      // Устанавливаем цвета только если методы доступны
-      if (typeof tg.setHeaderColor === 'function') {
-        try {
-          tg.setHeaderColor('#ffffff');
-        } catch (e) {
-          console.log('Could not set header color:', e);
-        }
-      }
-      
-      if (typeof tg.setBackgroundColor === 'function') {
-        try {
-          tg.setBackgroundColor('#ffffff');
-        } catch (e) {
-          console.log('Could not set background color:', e);
-        }
-      }
+      // Не вызываем устаревшие методы setHeaderColor и setBackgroundColor
+      // Они не поддерживаются в версии 6.0
       
       console.log('Telegram Web App initialized successfully');
     } else {
