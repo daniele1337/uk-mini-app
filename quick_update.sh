@@ -47,7 +47,7 @@ pip3 install -r requirements.txt --upgrade
 # Frontend - полная переустановка
 rm -rf node_modules package-lock.json
 npm install
-npm install -g vite serve
+npm install -g vite http-server
 npm run build
 
 # Запускаем сервисы
