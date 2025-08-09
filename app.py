@@ -428,17 +428,34 @@ def submit_meter_readings():
 def get_complaints():
     """Получить обращения пользователя"""
     try:
+        print("=== GET /api/complaints ===")
         auth_header = request.headers.get('Authorization')
+        print(f"Auth header: {auth_header}")
+        
         if not auth_header or not auth_header.startswith('Bearer '):
+            print("No valid auth header")
             return jsonify({'error': 'Unauthorized'}), 401
         
         token = auth_header.split(' ')[1]
+        print(f"Token: {token[:20]}...")
+        
         user_id = verify_token(token)
+        print(f"User ID from token: {user_id}")
         
         if not user_id:
+            print("Invalid token")
             return jsonify({'error': 'Invalid token'}), 401
         
+        # Проверяем, существует ли пользователь
+        user = User.query.get(user_id)
+        if not user:
+            print(f"User {user_id} not found in database")
+            return jsonify({'error': 'User not found'}), 404
+        
+        print(f"User found: {user.first_name} {user.last_name}")
+        
         complaints = Complaint.query.filter_by(user_id=user_id).order_by(Complaint.created_at.desc()).all()
+        print(f"Found {len(complaints)} complaints")
         
         complaints_data = []
         for complaint in complaints:
@@ -454,11 +471,40 @@ def get_complaints():
                 'updated_at': complaint.updated_at.isoformat()
             })
         
+        print("Returning complaints data successfully")
         return jsonify({'complaints': complaints_data})
         
     except Exception as e:
         print(f"Error getting complaints: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
+
+# Тестовый маршрут для проверки
+@app.route('/api/test', methods=['GET'])
+def test_endpoint():
+    """Тестовый маршрут для проверки работы сервера"""
+    try:
+        print("=== GET /api/test ===")
+        
+        # Проверяем подключение к базе данных
+        user_count = User.query.count()
+        complaint_count = Complaint.query.count()
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'Server is working',
+            'database': {
+                'users_count': user_count,
+                'complaints_count': complaint_count
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in test endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 # API для типов счетчиков
 @app.route('/api/meter-types', methods=['GET'])
@@ -598,14 +644,31 @@ def submit_meter_reading(meter_type):
 def create_complaint():
     """Создать новое обращение"""
     try:
+        print("=== POST /api/complaints ===")
+        
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        print(f"Token: {token[:20] if token else 'None'}...")
+        
         user_id = verify_token(token)
+        print(f"User ID from token: {user_id}")
         
         if not user_id:
+            print("No valid user_id from token")
             return jsonify({'error': 'Unauthorized'}), 401
         
+        # Проверяем, существует ли пользователь
+        user = User.query.get(user_id)
+        if not user:
+            print(f"User {user_id} not found in database")
+            return jsonify({'error': 'User not found'}), 404
+        
+        print(f"User found: {user.first_name} {user.last_name}")
+        
         data = request.get_json()
+        print(f"Request data: {data}")
+        
         if not data:
+            print("No data provided")
             return jsonify({'error': 'No data provided'}), 400
             
         title = data.get('title')
@@ -613,9 +676,16 @@ def create_complaint():
         category = data.get('category')
         priority = data.get('priority', 'medium')
         
+        print(f"Title: {title}")
+        print(f"Description: {description}")
+        print(f"Category: {category}")
+        print(f"Priority: {priority}")
+        
         if not all([title, description, category]):
+            print("Missing required fields")
             return jsonify({'error': 'Title, description and category are required'}), 400
         
+        print("Creating complaint object...")
         complaint = Complaint(
             user_id=user_id,
             title=title,
@@ -624,8 +694,11 @@ def create_complaint():
             priority=priority
         )
         
+        print("Adding complaint to database...")
         db.session.add(complaint)
         db.session.commit()
+        
+        print(f"Complaint created successfully with ID: {complaint.id}")
         
         return jsonify({
             'success': True,
@@ -644,6 +717,8 @@ def create_complaint():
     except Exception as e:
         db.session.rollback()
         print(f"Error creating complaint: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
