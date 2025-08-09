@@ -687,53 +687,104 @@ def update_user(user_id):
         }
     })
 
+# API для получения профиля пользователя
+@app.route('/api/users/profile', methods=['GET'])
+def get_user_profile():
+    """Получить профиль пользователя"""
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        user_id = verify_token(token)
+        
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'telegram_id': user.telegram_id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'username': user.username,
+                'apartment': user.apartment,
+                'building': user.building,
+                'street': user.street,
+                'phone': user.phone,
+                'email': user.email,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active,
+                'created_at': user.created_at.isoformat() if user.created_at else None
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error getting user profile: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 # API для обновления профиля пользователя
 @app.route('/api/users/profile', methods=['PUT'])
 def update_user_profile():
     """Обновить профиль пользователя"""
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    user_id = verify_token(token)
-    
-    if not user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    data = request.get_json()
-    
-    # Обновляем поля профиля
-    if 'apartment' in data:
-        user.apartment = data['apartment']
-    if 'building' in data:
-        user.building = data['building']
-    if 'street' in data:
-        user.street = data['street']
-    if 'phone' in data:
-        user.phone = data['phone']
-    if 'email' in data:
-        user.email = data['email']
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'user': {
-            'id': user.id,
-            'telegram_id': user.telegram_id,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'username': user.username,
-            'apartment': user.apartment,
-            'building': user.building,
-            'street': user.street,
-            'phone': user.phone,
-            'email': user.email,
-            'is_admin': user.is_admin,
-            'is_active': user.is_active
-        }
-    })
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        user_id = verify_token(token)
+        
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Обновляем поля профиля
+        if 'first_name' in data:
+            user.first_name = data['first_name']
+        if 'last_name' in data:
+            user.last_name = data['last_name']
+        if 'apartment' in data:
+            user.apartment = data['apartment']
+        if 'building' in data:
+            user.building = data['building']
+        if 'street' in data:
+            user.street = data['street']
+        if 'phone' in data:
+            user.phone = data['phone']
+        if 'email' in data:
+            user.email = data['email']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'telegram_id': user.telegram_id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'username': user.username,
+                'apartment': user.apartment,
+                'building': user.building,
+                'street': user.street,
+                'phone': user.phone,
+                'email': user.email,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active,
+                'created_at': user.created_at.isoformat() if user.created_at else None
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating user profile: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 # Админские маршруты
 @app.route('/api/admin/stats', methods=['GET'])
@@ -1576,5 +1627,61 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         print("Database tables created successfully")
+        
+        # Создаем тестового пользователя, если его нет
+        test_user = User.query.filter_by(telegram_id='123456789').first()
+        if not test_user:
+            test_user = User(
+                telegram_id='123456789',
+                first_name='Тестовый',
+                last_name='Пользователь',
+                username='test_user',
+                apartment='15',
+                building='3',
+                street='Ленина',
+                phone='+7 (999) 123-45-67',
+                email='test@example.com',
+                is_admin=False,
+                is_active=True
+            )
+            db.session.add(test_user)
+            db.session.commit()
+            print("Test user created successfully")
+        
+        # Создаем тестовые типы счетчиков
+        meter_types = [
+            {'name': 'Электричество', 'code': 'electricity', 'unit': 'кВт·ч'},
+            {'name': 'Холодная вода', 'code': 'cold_water', 'unit': 'м³'},
+            {'name': 'Горячая вода', 'code': 'hot_water', 'unit': 'м³'},
+            {'name': 'Газ', 'code': 'gas', 'unit': 'м³'},
+            {'name': 'Отопление', 'code': 'heating', 'unit': 'Гкал'}
+        ]
+        
+        for mt_data in meter_types:
+            existing = MeterType.query.filter_by(code=mt_data['code']).first()
+            if not existing:
+                meter_type = MeterType(**mt_data)
+                db.session.add(meter_type)
+        
+        # Создаем тестовые категории обращений
+        complaint_categories = [
+            {'name': 'Сантехника', 'code': 'plumbing', 'description': 'Проблемы с водоснабжением, канализацией'},
+            {'name': 'Электрика', 'code': 'electricity', 'description': 'Проблемы с электричеством'},
+            {'name': 'Отопление', 'code': 'heating', 'description': 'Проблемы с отоплением'},
+            {'name': 'Уборка', 'code': 'cleaning', 'description': 'Проблемы с уборкой подъездов'},
+            {'name': 'Шум', 'code': 'noise', 'description': 'Жалобы на шум'},
+            {'name': 'Лифт', 'code': 'elevator', 'description': 'Проблемы с лифтом'},
+            {'name': 'Ремонт', 'code': 'repair', 'description': 'Общие вопросы ремонта'},
+            {'name': 'Общие вопросы', 'code': 'general', 'description': 'Другие вопросы'}
+        ]
+        
+        for cat_data in complaint_categories:
+            existing = ComplaintCategory.query.filter_by(code=cat_data['code']).first()
+            if not existing:
+                category = ComplaintCategory(**cat_data)
+                db.session.add(category)
+        
+        db.session.commit()
+        print("Test data initialized successfully")
     
     app.run(debug=True, host='0.0.0.0', port=8000) 

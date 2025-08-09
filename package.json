@@ -1,14 +1,13 @@
 {
   "name": "uk-mini-app",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Telegram Mini App для управляющей компании",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "python app.py",
-    "serve": "http-server dist -p 3000 -a 0.0.0.0 --cors"
+    "server": "python app.py"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -16,8 +15,7 @@
     "react-router-dom": "^6.8.0",
     "axios": "^1.3.0",
     "lucide-react": "^0.263.1",
-    "@twa-dev/sdk": "^6.9.0",
-    "http-server": "^14.1.1"
+    "@twa-dev/sdk": "^6.9.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.28",
