@@ -12,8 +12,9 @@ module.exports = {
     },
     {
       name: 'uk-mini-app-frontend',
-      script: 'npx',
-      args: 'http-server dist -p 3000 -a 0.0.0.0 --cors',
+      script: 'python3',
+      args: '-m http.server 3000',
+      cwd: './dist',
       env: {
         NODE_ENV: 'production'
       }
