@@ -13,7 +13,7 @@ module.exports = {
     {
       name: 'uk-mini-app-frontend',
       script: 'npx',
-      args: 'serve dist -l 3000 -s',
+      args: 'http-server dist -p 3000 -a 0.0.0.0 --cors',
       env: {
         NODE_ENV: 'production'
       }
