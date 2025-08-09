@@ -31,8 +31,7 @@ echo "📝 Найдены изменения, обновляем..."
 
 # Останавливаем PM2 процессы
 echo "🛑 Останавливаем сервисы..."
-pm2 stop uk-mini-app-backend 2>/dev/null
-pm2 stop uk-mini-app-frontend 2>/dev/null
+pm2 stop all
 
 # Обновляем код
 echo "📥 Обновляем код..."
@@ -43,19 +42,11 @@ git clean -fd
 echo "📦 Обновляем зависимости..."
 
 # Backend
-if [ -f "backend/requirements.txt" ]; then
-    cd backend
-    pip3 install -r requirements.txt --upgrade
-    cd ..
-fi
+pip3 install -r requirements.txt --upgrade
 
 # Frontend
-if [ -f "frontend/package.json" ]; then
-    cd frontend
-    npm install --production
-    npm run build
-    cd ..
-fi
+npm install --production
+npm run build
 
 # Запускаем сервисы
 echo "🚀 Запускаем сервисы..."

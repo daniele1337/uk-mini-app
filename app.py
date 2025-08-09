@@ -232,6 +232,11 @@ def process_meter_image(image_file):
             'success': False,
             'error': 'OCR functionality is currently disabled.'
         }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 # API маршруты
 # Улучшенная авторизация через Telegram
