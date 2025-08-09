@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Star, Send, Home, Zap, MessageCircle, User, Settings, Wifi, WifiOff } from 'lucide-react';
+import { Bell, Star, Send, Home as HomeIcon, Zap, MessageCircle, User, Settings, Wifi, WifiOff } from 'lucide-react';
 
 const Home = () => {
   const [rating, setRating] = useState(0);
@@ -59,7 +59,7 @@ const Home = () => {
   };
 
   const navigationItems = [
-    { icon: Home, label: 'Главная', active: true },
+    { icon: HomeIcon, label: 'Главная', active: true },
     { icon: Zap, label: 'Счетчики', active: false },
     { icon: MessageCircle, label: 'Обращения', active: false },
     { icon: User, label: 'Профиль', active: false },
