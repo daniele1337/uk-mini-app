@@ -44,8 +44,9 @@ echo "📦 Обновляем зависимости..."
 # Backend
 pip3 install -r requirements.txt --upgrade
 
-# Frontend
-npm install --production
+# Frontend - полная переустановка
+rm -rf node_modules package-lock.json
+npm install
 npm run build
 
 # Запускаем сервисы
