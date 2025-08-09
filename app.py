@@ -166,10 +166,35 @@ def generate_token(user_id):
     return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
 
 def verify_token(token):
+    """Проверка JWT токена"""
     try:
+        if not token:
+            print("No token provided")
+            return None
+            
         payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        return payload['user_id']
-    except:
+        user_id = payload.get('user_id')
+        
+        if not user_id:
+            print("No user_id in token payload")
+            return None
+            
+        # Проверяем, что пользователь существует
+        user = User.query.get(user_id)
+        if not user:
+            print(f"User with id {user_id} not found")
+            return None
+            
+        return user_id
+        
+    except jwt.ExpiredSignatureError:
+        print("Token expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        print(f"Invalid token: {str(e)}")
+        return None
+    except Exception as e:
+        print(f"Error verifying token: {str(e)}")
         return None
 
 # OCR функция
@@ -401,31 +426,39 @@ def submit_meter_readings():
 
 @app.route('/api/complaints', methods=['GET'])
 def get_complaints():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    token = auth_header.split(' ')[1]
-    user_id = verify_token(token)
-    
-    if not user_id:
-        return jsonify({'error': 'Invalid token'}), 401
-    
-    complaints = Complaint.query.filter_by(user_id=user_id).order_by(Complaint.created_at.desc()).all()
-    
-    complaints_data = []
-    for complaint in complaints:
-        complaints_data.append({
-            'id': complaint.id,
-            'title': complaint.title,
-            'description': complaint.description,
-            'category': complaint.category,
-            'status': complaint.status,
-            'response': complaint.response,
-            'created_at': complaint.created_at.isoformat()
-        })
-    
-    return jsonify({'complaints': complaints_data})
+    """Получить обращения пользователя"""
+    try:
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        token = auth_header.split(' ')[1]
+        user_id = verify_token(token)
+        
+        if not user_id:
+            return jsonify({'error': 'Invalid token'}), 401
+        
+        complaints = Complaint.query.filter_by(user_id=user_id).order_by(Complaint.created_at.desc()).all()
+        
+        complaints_data = []
+        for complaint in complaints:
+            complaints_data.append({
+                'id': complaint.id,
+                'title': complaint.title,
+                'description': complaint.description,
+                'category': complaint.category,
+                'priority': complaint.priority,
+                'status': complaint.status,
+                'response': complaint.response,
+                'created_at': complaint.created_at.isoformat(),
+                'updated_at': complaint.updated_at.isoformat()
+            })
+        
+        return jsonify({'complaints': complaints_data})
+        
+    except Exception as e:
+        print(f"Error getting complaints: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 # API для типов счетчиков
 @app.route('/api/meter-types', methods=['GET'])
@@ -457,38 +490,43 @@ def get_complaint_categories():
 @app.route('/api/meters/readings', methods=['GET'])
 def get_meter_readings():
     """Получить показания счетчиков пользователя"""
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    user_id = verify_token(token)
-    
-    if not user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    # Получаем последние показания по каждому типу счетчика
-    readings = db.session.query(MeterReading).filter(
-        MeterReading.user_id == user_id
-    ).order_by(MeterReading.created_at.desc()).all()
-    
-    # Группируем по типу счетчика
-    readings_by_type = {}
-    for reading in readings:
-        if reading.meter_type not in readings_by_type:
-            readings_by_type[reading.meter_type] = []
-        readings_by_type[reading.meter_type].append({
-            'id': reading.id,
-            'value': reading.value,
-            'previous_value': reading.previous_value,
-            'consumption': reading.consumption,
-            'notes': reading.notes,
-            'is_verified': reading.is_verified,
-            'created_at': reading.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'photo_path': reading.photo_path
-        })
-    
-    return jsonify(readings_by_type)
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        user_id = verify_token(token)
+        
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Получаем последние показания по каждому типу счетчика
+        readings = db.session.query(MeterReading).filter(
+            MeterReading.user_id == user_id
+        ).order_by(MeterReading.created_at.desc()).all()
+        
+        # Группируем по типу счетчика
+        readings_by_type = {}
+        for reading in readings:
+            if reading.meter_type not in readings_by_type:
+                readings_by_type[reading.meter_type] = []
+            readings_by_type[reading.meter_type].append({
+                'id': reading.id,
+                'value': reading.value,
+                'previous_value': reading.previous_value,
+                'consumption': reading.consumption,
+                'notes': reading.notes,
+                'is_verified': reading.is_verified,
+                'created_at': reading.created_at.isoformat(),
+                'updated_at': reading.updated_at.isoformat()
+            })
+        
+        return jsonify(readings_by_type)
+        
+    except Exception as e:
+        print(f"Error getting meter readings: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/meters/readings/<meter_type>', methods=['POST'])
 def submit_meter_reading(meter_type):
@@ -559,38 +597,54 @@ def submit_meter_reading(meter_type):
 @app.route('/api/complaints', methods=['POST'])
 def create_complaint():
     """Создать новое обращение"""
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    user_id = verify_token(token)
-    
-    if not user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    data = request.get_json()
-    title = data.get('title')
-    description = data.get('description')
-    category = data.get('category')
-    priority = data.get('priority', 'medium')
-    
-    if not all([title, description, category]):
-        return jsonify({'error': 'Title, description and category are required'}), 400
-    
-    complaint = Complaint(
-        user_id=user_id,
-        title=title,
-        description=description,
-        category=category,
-        priority=priority
-    )
-    
-    db.session.add(complaint)
-    db.session.commit()
-    
-    return jsonify({
-        'id': complaint.id,
-        'title': complaint.title,
-        'status': complaint.status,
-        'created_at': complaint.created_at.strftime('%Y-%m-%d %H:%M:%S')
-    })
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        user_id = verify_token(token)
+        
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        title = data.get('title')
+        description = data.get('description')
+        category = data.get('category')
+        priority = data.get('priority', 'medium')
+        
+        if not all([title, description, category]):
+            return jsonify({'error': 'Title, description and category are required'}), 400
+        
+        complaint = Complaint(
+            user_id=user_id,
+            title=title,
+            description=description,
+            category=category,
+            priority=priority
+        )
+        
+        db.session.add(complaint)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'complaint': {
+                'id': complaint.id,
+                'title': complaint.title,
+                'description': complaint.description,
+                'category': complaint.category,
+                'priority': complaint.priority,
+                'status': complaint.status,
+                'created_at': complaint.created_at.isoformat(),
+                'updated_at': complaint.updated_at.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating complaint: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
@@ -1518,4 +1572,9 @@ def broadcast_telegram_notification(title, message, notification_type='info', ta
     }
 
 if __name__ == '__main__':
+    # Создаем таблицы в базе данных
+    with app.app_context():
+        db.create_all()
+        print("Database tables created successfully")
+    
     app.run(debug=True, host='0.0.0.0', port=8000) 

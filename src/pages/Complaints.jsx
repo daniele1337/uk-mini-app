@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Plus, Clock, CheckCircle, AlertCircle, Send, Home as HomeIcon, Zap, User } from 'lucide-react';
+import { MessageCircle, Plus, Clock, CheckCircle, AlertCircle, Send } from 'lucide-react';
 
 const Complaints = () => {
   const navigate = useNavigate();
@@ -181,17 +181,10 @@ const Complaints = () => {
     }
   };
 
-  const navigationItems = [
-    { icon: HomeIcon, label: 'Главная', active: false, path: '/' },
-    { icon: Zap, label: 'Счетчики', active: false, path: '/meters' },
-    { icon: MessageCircle, label: 'Обращения', active: true, path: '/complaints' },
-    { icon: User, label: 'Профиль', active: false, path: '/profile' },
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Главный контент */}
-      <div className="pt-16 pb-20 px-4">
+      <div className="pt-16 pb-8 px-4">
         {/* Заголовок */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
@@ -352,26 +345,6 @@ const Complaints = () => {
               )}
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Нижнее меню */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-        <div className="flex justify-around py-2">
-          {navigationItems.map((item, index) => (
-            <button
-              key={index}
-              onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center py-2 px-4 rounded-lg transition-all duration-200 ${
-                item.active
-                  ? 'text-purple-600 bg-purple-50'
-                  : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
-              }`}
-            >
-              <item.icon className="w-6 h-6 mb-1" />
-              <span className="text-xs font-medium">{item.label}</span>
-            </button>
-          ))}
         </div>
       </div>
     </div>
