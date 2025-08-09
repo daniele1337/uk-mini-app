@@ -1,21 +1,31 @@
 {
   "name": "uk-mini-app",
+<<<<<<< Updated upstream:package.json
   "version": "1.0.1",
   "description": "Telegram Mini App для управляющей компании - Обновлено для тестирования Git",
   "main": "index.js",
+=======
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+>>>>>>> Stashed changes:frontend/package.json
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+<<<<<<< Updated upstream:package.json
     "server": "python app.py"
+=======
+    "start": "vite --host 0.0.0.0 --port 3000"
+>>>>>>> Stashed changes:frontend/package.json
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.8.0",
-    "axios": "^1.3.0",
+    "react-router-dom": "^6.8.1",
+    "axios": "^1.3.4",
     "lucide-react": "^0.263.1",
-    "@twa-dev/sdk": "^6.9.0"
+    "@twa-dev/sdk": "^6.9.1"
   },
   "devDependencies": {
     "@types/react": "^18.0.28",
@@ -24,7 +34,6 @@
     "autoprefixer": "^10.4.14",
     "postcss": "^8.4.21",
     "tailwindcss": "^3.2.7",
-    "typescript": "^4.9.5",
     "vite": "^4.1.0"
   }
 } 
