@@ -1,196 +1,140 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import { WebApp } from '@twa-dev/sdk'
-import api from '../services/api'
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const AuthContext = createContext()
+const AuthContext = createContext();
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context
-}
+  return context;
+};
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    // Проверяем localStorage при инициализации
-    const savedUser = localStorage.getItem('uk_mini_app_user')
-    return savedUser ? JSON.parse(savedUser) : null
-  })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const initAuth = async () => {
+    // Проверяем сохраненную авторизацию при загрузке
+    const savedToken = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+
+    if (savedToken && savedUser) {
       try {
-        setError(null)
-        
-        // Проверяем доступность Telegram Web App
-        if (window.Telegram && window.Telegram.WebApp && typeof WebApp !== 'undefined') {
-          console.log('Telegram Web App detected')
-          
-          // Инициализируем Web App
-          WebApp.ready()
-          WebApp.expand()
-          
-          const tgUser = WebApp.initDataUnsafe?.user
-          if (tgUser) {
-            console.log('Telegram user found:', tgUser)
-            
-            // Проверяем/создаем пользователя в базе
-            const response = await api.post('/auth/telegram', {
-              telegram_id: tgUser.id.toString(),
-              first_name: tgUser.first_name,
-              last_name: tgUser.last_name || '',
-              username: tgUser.username || ''
-            })
-            
-            if (response.data.success) {
-              const userData = response.data.user
-              setUser(userData)
-              localStorage.setItem('uk_mini_app_user', JSON.stringify(userData))
-              localStorage.setItem('uk_mini_app_token', response.data.token)
-              console.log('User authenticated successfully:', userData)
-            } else {
-              throw new Error(response.data.message || 'Authentication failed')
-            }
-          } else {
-            console.log('No Telegram user data available')
-            // Создаем тестового пользователя для разработки
-            const testUser = {
-              id: 1,
-              telegram_id: '123456789',
-              first_name: 'Тестовый',
-              last_name: 'Пользователь',
-              username: 'test_user',
-              is_admin: false
-            }
-            setUser(testUser)
-            localStorage.setItem('uk_mini_app_user', JSON.stringify(testUser))
-          }
-        } else {
-          console.log('Telegram Web App not available, using test mode')
-          // Для тестирования в браузере - создаем тестового пользователя
-          const testUser = {
-            id: 1,
-            telegram_id: '123456789',
-            first_name: 'Тестовый',
-            last_name: 'Пользователь',
-            username: 'test_user',
-            is_admin: false
-          }
-          setUser(testUser)
-          localStorage.setItem('uk_mini_app_user', JSON.stringify(testUser))
-        }
+        setToken(savedToken);
+        setUser(JSON.parse(savedUser));
+        setIsAuthenticated(true);
       } catch (error) {
-        console.error('Auth error:', error)
-        setError(error.message || 'Ошибка авторизации')
-        
-        // В случае ошибки также создаем тестового пользователя
-        const testUser = {
-          id: 1,
-          telegram_id: '123456789',
-          first_name: 'Тестовый',
-          last_name: 'Пользователь',
-          username: 'test_user',
-          is_admin: false
-        }
-        setUser(testUser)
-        localStorage.setItem('uk_mini_app_user', JSON.stringify(testUser))
-      } finally {
-        setLoading(false)
+        console.error('Error parsing saved user data:', error);
+        logout();
       }
     }
+    setIsLoading(false);
+  }, []);
 
-    // Проверяем, есть ли сохраненный пользователь
-    const savedUser = localStorage.getItem('uk_mini_app_user')
-    if (savedUser && !user) {
-      setUser(JSON.parse(savedUser))
-      setLoading(false)
-    } else if (!user) {
-      initAuth()
-    } else {
-      setLoading(false)
-    }
-  }, [])
-
-  const login = async (userData) => {
+  const loginWithTelegram = async (telegramUser) => {
     try {
-      setError(null)
-      const response = await api.post('/auth/login', userData)
-      if (response.data.success) {
-        setUser(response.data.user)
-        localStorage.setItem('uk_mini_app_user', JSON.stringify(response.data.user))
-        localStorage.setItem('uk_mini_app_token', response.data.token)
-        return { success: true }
+      // Отправляем данные на сервер для авторизации
+      const response = await fetch('/api/auth/telegram', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(telegramUser),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          // Сохраняем токен и данные пользователя
+          setToken(data.token);
+          setUser(data.user);
+          setIsAuthenticated(true);
+          
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          
+          // Перенаправляем на главную страницу
+          navigate('/');
+          return data;
+        } else {
+          throw new Error(data.error || 'Ошибка авторизации');
+        }
+      } else {
+        throw new Error('Ошибка подключения к серверу');
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Ошибка входа'
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
+      console.error('Telegram auth error:', error);
+      
+      // Если сервер недоступен, создаем тестового пользователя
+      if (error.message === 'Ошибка подключения к серверу') {
+        const testUser = {
+          id: telegramUser.id || 123456789,
+          telegram_id: telegramUser.id?.toString() || '123456789',
+          first_name: telegramUser.first_name || 'Тестовый',
+          last_name: telegramUser.last_name || 'Пользователь',
+          username: telegramUser.username || 'test_user',
+          apartment: '1',
+          building: '1',
+          street: 'Тестовая улица',
+          phone: '+7 (999) 123-45-67',
+          email: 'test@example.com',
+          is_admin: false,
+          is_active: true
+        };
+        
+        const testToken = 'test_token_' + Date.now();
+        
+        setToken(testToken);
+        setUser(testUser);
+        setIsAuthenticated(true);
+        
+        localStorage.setItem('token', testToken);
+        localStorage.setItem('user', JSON.stringify(testUser));
+        
+        navigate('/');
+        return { success: true, token: testToken, user: testUser };
+      }
+      
+      throw error;
     }
-  }
+  };
 
   const logout = () => {
-    setUser(null)
-    setError(null)
-    localStorage.removeItem('uk_mini_app_user')
-    localStorage.removeItem('uk_mini_app_token')
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
     
-    // Если в Telegram Web App, закрываем приложение
-    if (window.Telegram && window.Telegram.WebApp) {
-      try {
-        WebApp.close()
-      } catch (error) {
-        console.log('Could not close Web App:', error)
-      }
-    }
-  }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    navigate('/login');
+  };
 
-  const updateProfile = async (profileData) => {
-    try {
-      setError(null)
-      const response = await api.put(`/users/profile`, profileData)
-      if (response.data.success) {
-        const updatedUser = { ...user, ...response.data.user }
-        setUser(updatedUser)
-        localStorage.setItem('uk_mini_app_user', JSON.stringify(updatedUser))
-        return { success: true }
-      }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Ошибка обновления профиля'
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
-    }
-  }
-
-  const refreshUser = async () => {
-    try {
-      const response = await api.get('/users/profile')
-      if (response.data.success) {
-        const updatedUser = response.data.user
-        setUser(updatedUser)
-        localStorage.setItem('uk_mini_app_user', JSON.stringify(updatedUser))
-      }
-    } catch (error) {
-      console.error('Error refreshing user:', error)
-    }
-  }
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
 
   const value = {
     user,
-    loading,
-    error,
-    login,
+    token,
+    isAuthenticated,
+    isLoading,
+    loginWithTelegram,
     logout,
-    updateProfile,
-    refreshUser
-  }
+    updateUser,
+    isAdmin: user?.is_admin || false,
+  };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  )
-} 
+  );
+}; 

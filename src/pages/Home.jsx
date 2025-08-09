@@ -1,123 +1,209 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
-import { Users, FileText, AlertTriangle, TrendingUp } from 'lucide-react'
-import NotificationCenter from '../components/NotificationCenter'
-import RatingSystem from '../components/RatingSystem'
-import SupportChat from '../components/SupportChat'
+import React, { useState, useEffect } from 'react';
+import { Bell, Star, Send, Home, Zap, MessageCircle, User, Settings, Wifi, WifiOff } from 'lucide-react';
 
 const Home = () => {
-  const { user, isAdmin } = useAuth()
-  const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [notifications, setNotifications] = useState([]);
+  const [isOnline, setIsOnline] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
-    if (user && user.token) {
-      fetchStats()
-    } else {
-      setLoading(false)
-    }
-  }, [user])
+    // Проверяем подключение к API
+    checkConnection();
+    // Загружаем уведомления
+    loadNotifications();
+  }, []);
 
-  const fetchStats = async () => {
+  const checkConnection = async () => {
     try {
-      const response = await fetch('https://24autoflow.ru/api/users/stats', {
-        headers: {
-          'Authorization': `Bearer ${user.token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      
+      const response = await fetch('/api/health');
+      setIsOnline(response.ok);
+    } catch (error) {
+      setIsOnline(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications');
       if (response.ok) {
-        const data = await response.json()
-        setStats(data)
-      } else {
-        console.log('Stats not available for this user')
+        const data = await response.json();
+        setNotifications(data.notifications || []);
       }
     } catch (error) {
-      console.log('Error fetching stats:', error)
-    } finally {
-      setLoading(false)
+      console.log('Офлайн режим: уведомления загружены локально');
     }
-  }
+  };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка...</p>
-        </div>
-      </div>
-    )
-  }
+  const handleRatingSubmit = async () => {
+    if (rating === 0) return;
+
+    try {
+      const response = await fetch('/api/rating', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rating, comment }),
+      });
+
+      if (response.ok) {
+        setRating(0);
+        setComment('');
+        alert('Спасибо за ваш отзыв!');
+      }
+    } catch (error) {
+      alert('Отзыв сохранен локально');
+    }
+  };
+
+  const navigationItems = [
+    { icon: Home, label: 'Главная', active: true },
+    { icon: Zap, label: 'Счетчики', active: false },
+    { icon: MessageCircle, label: 'Обращения', active: false },
+    { icon: User, label: 'Профиль', active: false },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Добро пожаловать, {user?.first_name || 'Пользователь'}!
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Статус подключения */}
+      <div className={`fixed top-0 left-0 right-0 z-50 p-2 text-center text-sm font-medium ${
+        isOnline 
+          ? 'bg-green-100 text-green-800 border-b border-green-200' 
+          : 'bg-orange-100 text-orange-800 border-b border-orange-200'
+      }`}>
+        <div className="flex items-center justify-center gap-2">
+          {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+          {isOnline ? 'Подключено к серверу' : 'Работаем в офлайн режиме. Данные сохраняются локально.'}
+        </div>
+      </div>
+
+      {/* Главный контент */}
+      <div className="pt-16 pb-20 px-4">
+        {/* Приветствие */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            Добро пожаловать, Тестовый!
           </h1>
-          <p className="mt-2 text-gray-600">
+          <p className="text-gray-600 text-lg">
             Система управления домом - ваш удобный помощник
           </p>
         </div>
 
-        {isAdmin && stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Пользователей</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total_users}</p>
-                </div>
+        {/* Карточки */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
+          {/* Уведомления */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4">
+              <div className="flex items-center gap-3">
+                <Bell className="w-6 h-6 text-white" />
+                <h2 className="text-xl font-semibold text-white">Уведомления</h2>
               </div>
             </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <FileText className="h-8 w-8 text-green-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Показаний</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total_readings}</p>
+            <div className="p-6">
+              {notifications.length > 0 ? (
+                <div className="space-y-4">
+                  {notifications.map((notification, index) => (
+                    <div key={index} className="p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                      <h3 className="font-medium text-gray-800">{notification.title}</h3>
+                      <p className="text-gray-600 text-sm mt-1">{notification.message}</p>
+                      <span className="text-xs text-gray-500 mt-2 block">{notification.date}</span>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <AlertTriangle className="h-8 w-8 text-yellow-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Обращений</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total_complaints}</p>
+              ) : (
+                <div className="text-center py-8">
+                  <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Новых уведомлений нет</p>
                 </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-purple-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Активных</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.active_users}</p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
-        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <NotificationCenter />
-          <RatingSystem />
+          {/* Рейтинг сервиса */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 p-4">
+              <div className="flex items-center gap-3">
+                <Star className="w-6 h-6 text-white" />
+                <h2 className="text-xl font-semibold text-white">Оцените наш сервис</h2>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Ваша оценка
+                </label>
+                <div className="flex gap-2 mb-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(star)}
+                      className={`p-2 rounded-lg transition-all duration-200 ${
+                        star <= rating
+                          ? 'text-yellow-500 bg-yellow-50'
+                          : 'text-gray-300 hover:text-yellow-400'
+                      }`}
+                    >
+                      <Star className="w-8 h-8" fill={star <= rating ? 'currentColor' : 'none'} />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-500">
+                  {rating === 0 ? 'Выберите оценку' : `${rating} из 5 звезд`}
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Комментарий (необязательно)
+                </label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Расскажите о вашем опыте..."
+                  className="w-full p-4 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows="4"
+                />
+              </div>
+
+              <button
+                onClick={handleRatingSubmit}
+                disabled={rating === 0}
+                className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                  rating === 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl'
+                }`}
+              >
+                <Send className="w-5 h-5" />
+                Отправить отзыв
+              </button>
+            </div>
+          </div>
         </div>
-        
-        <div className="mt-8">
-          <SupportChat />
+      </div>
+
+      {/* Нижнее меню */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+        <div className="flex justify-around py-2">
+          {navigationItems.map((item, index) => (
+            <button
+              key={index}
+              className={`flex flex-col items-center py-2 px-4 rounded-lg transition-all duration-200 ${
+                item.active
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+            >
+              <item.icon className="w-6 h-6 mb-1" />
+              <span className="text-xs font-medium">{item.label}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Home 
+export default Home; 

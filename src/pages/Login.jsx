@@ -1,275 +1,150 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import api from '../services/api'
-import { 
-  MessageCircle, 
-  User, 
-  Lock, 
-  Eye, 
-  EyeOff,
-  Smartphone,
-  Mail,
-  Home,
-  Building,
-  MapPin
-} from 'lucide-react'
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { MessageCircle, Shield, Zap, Users, Home, Smartphone } from 'lucide-react';
 
 const Login = () => {
-  const { login } = useAuth()
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [showProfileForm, setShowProfileForm] = useState(false)
-  const [telegramData, setTelegramData] = useState(null)
-  const [profileData, setProfileData] = useState({
-    apartment: '',
-    building: '',
-    street: '',
-    phone: '',
-    email: ''
-  })
+  const { loginWithTelegram, isAuthenticated } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Проверяем, доступен ли Telegram Web App
+    // Проверяем, есть ли данные от Telegram Web App
     if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp
-      tg.ready()
-      
+      const tg = window.Telegram.WebApp;
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        setTelegramData(tg.initDataUnsafe.user)
-        handleTelegramAuth(tg.initDataUnsafe.user)
+        handleTelegramAuth(tg.initDataUnsafe.user);
       }
     }
-  }, [])
+  }, []);
 
   const handleTelegramAuth = async (userData) => {
-    setLoading(true)
-    try {
-      const response = await api.post('/auth/telegram', userData)
-      
-      if (response.data.success) {
-        login(response.data.token, response.data.user)
-        
-        // Если у пользователя нет адреса, показываем форму профиля
-        if (!response.data.user.apartment || !response.data.user.building || !response.data.user.street) {
-          setShowProfileForm(true)
-        } else {
-          navigate('/')
-        }
-      }
-    } catch (error) {
-      console.error('Telegram auth error:', error)
-      alert('Ошибка авторизации через Telegram')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    setIsLoading(true);
+    setError('');
 
     try {
-      const token = localStorage.getItem('token')
-      const response = await api.put('/users/profile', profileData, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      
-      if (response.data.success) {
-        setShowProfileForm(false)
-        navigate('/')
-      }
+      await loginWithTelegram(userData);
     } catch (error) {
-      console.error('Profile update error:', error)
-      alert('Ошибка обновления профиля')
+      setError('Ошибка авторизации. Попробуйте еще раз.');
+      console.error('Auth error:', error);
     } finally {
-      setLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleManualLogin = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+  const handleManualLogin = () => {
+    // Для тестирования - создаем тестового пользователя
+    const testUser = {
+      id: 123456789,
+      first_name: 'Тестовый',
+      last_name: 'Пользователь',
+      username: 'test_user'
+    };
+    handleTelegramAuth(testUser);
+  };
 
-    try {
-      // Симуляция входа для тестирования
-      const mockUser = {
-        id: 1,
-        telegram_id: '123456789',
-        first_name: 'Тестовый',
-        last_name: 'Пользователь',
-        username: 'test_user',
-        apartment: '1',
-        building: '1',
-        street: 'Тестовая улица',
-        phone: '+7 (999) 123-45-67',
-        email: 'test@example.com',
-        is_admin: false,
-        is_active: true
-      }
-
-      const mockToken = 'mock_token_' + Date.now()
-      login(mockToken, mockUser)
-      navigate('/')
-    } catch (error) {
-      console.error('Login error:', error)
-      alert('Ошибка входа')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (showProfileForm) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="text-center mb-6">
-              <User className="w-12 h-12 text-primary-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Завершите регистрацию</h2>
-              <p className="text-gray-600">Укажите ваш адрес для завершения регистрации</p>
-            </div>
-
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Home className="w-4 h-4 inline mr-2" />
-                  Квартира
-                </label>
-                <input
-                  type="text"
-                  value={profileData.apartment}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, apartment: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Номер квартиры"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Building className="w-4 h-4 inline mr-2" />
-                  Дом
-                </label>
-                <input
-                  type="text"
-                  value={profileData.building}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, building: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Номер дома"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="w-4 h-4 inline mr-2" />
-                  Улица
-                </label>
-                <input
-                  type="text"
-                  value={profileData.street}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, street: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Название улицы"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Smartphone className="w-4 h-4 inline mr-2" />
-                  Телефон
-                </label>
-                <input
-                  type="tel"
-                  value={profileData.phone}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="+7 (999) 123-45-67"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="w-4 h-4 inline mr-2" />
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={profileData.email}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="email@example.com"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors font-semibold"
-              >
-                {loading ? 'Сохранение...' : 'Сохранить и продолжить'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
+  if (isAuthenticated) {
+    return null; // Перенаправление обрабатывается в App.jsx
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="text-center mb-6">
-            <MessageCircle className="w-12 h-12 text-primary-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">УК Mini App</h1>
-            <p className="text-gray-600">Войдите в систему для доступа к функциям</p>
+        {/* Логотип и заголовок */}
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Home className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            УК Mini App
+          </h1>
+          <p className="text-gray-600">
+            Система управления домом
+          </p>
+        </div>
+
+        {/* Основная карточка */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          {/* Заголовок карточки */}
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-center">
+            <MessageCircle className="w-12 h-12 text-white mx-auto mb-3" />
+            <h2 className="text-2xl font-bold text-white mb-2">
+              Добро пожаловать!
+            </h2>
+            <p className="text-blue-100">
+              Войдите через Telegram для доступа к системе
+            </p>
           </div>
 
-          {telegramData ? (
-            <div className="text-center">
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  Обнаружен Telegram Web App
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  {telegramData.first_name} {telegramData.last_name}
-                </p>
+          {/* Содержимое карточки */}
+          <div className="p-6">
+            {/* Преимущества */}
+            <div className="mb-6 space-y-3">
+              <div className="flex items-center gap-3 text-gray-700">
+                <Shield className="w-5 h-5 text-green-500" />
+                <span className="text-sm">Безопасная авторизация</span>
               </div>
-              
-              <button
-                onClick={() => handleTelegramAuth(telegramData)}
-                disabled={loading}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold mb-4"
-              >
-                {loading ? 'Вход...' : 'Войти через Telegram'}
-              </button>
+              <div className="flex items-center gap-3 text-gray-700">
+                <Zap className="w-5 h-5 text-blue-500" />
+                <span className="text-sm">Быстрый доступ</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-700">
+                <Users className="w-5 h-5 text-purple-500" />
+                <span className="text-sm">Управление домом</span>
+              </div>
             </div>
-          ) : (
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-4">
-                Для использования приложения откройте его в Telegram
-              </p>
-              
-              <button
-                onClick={handleManualLogin}
-                disabled={loading}
-                className="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors font-semibold"
-              >
-                {loading ? 'Вход...' : 'Тестовый вход'}
-              </button>
-              
-              <p className="text-xs text-gray-500 mt-4">
-                Тестовый режим для разработки
+
+            {/* Кнопка входа через Telegram */}
+            <button
+              onClick={handleManualLogin}
+              disabled={isLoading}
+              className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-3 mb-4 ${
+                isLoading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl'
+              }`}
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <MessageCircle className="w-5 h-5" />
+              )}
+              {isLoading ? 'Вход...' : 'Войти через Telegram'}
+            </button>
+
+            {/* Альтернативная кнопка для тестирования */}
+            <button
+              onClick={handleManualLogin}
+              className="w-full py-3 px-6 rounded-xl font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center gap-3"
+            >
+              <Smartphone className="w-5 h-5" />
+              Тестовый вход
+            </button>
+
+            {/* Ошибка */}
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Информация */}
+            <div className="mt-6 text-center">
+              <p className="text-xs text-gray-500">
+                Авторизуясь, вы соглашаетесь с условиями использования
               </p>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Дополнительная информация */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Нужна помощь? Обратитесь к администратору
+          </p>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Login 
+export default Login; 
