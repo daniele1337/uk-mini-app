@@ -6,9 +6,9 @@ module.exports = {
       interpreter: 'python3',
       env: {
         FLASK_ENV: 'production',
-        PORT: 5000
+        PORT: 8000
       },
-      args: '--host 0.0.0.0 --port 5000'
+      args: '--host 0.0.0.0 --port 8000'
     },
     {
       name: 'uk-mini-app-frontend',
