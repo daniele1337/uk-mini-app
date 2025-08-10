@@ -29,47 +29,93 @@ const Login = () => {
       const newSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       setSessionId(newSessionId);
 
-      // Создаем сессию на сервере
-      const response = await fetch('/api/auth/create-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ session_id: newSessionId }),
-      });
+      console.log('Creating session with ID:', newSessionId);
 
-      if (response.ok) {
-        // Создаем URL для QR-кода
-        const qrUrl = `https://t.me/jkhtestbot1337_bot?start=qr_${newSessionId}`;
-        setQrCode(qrUrl);
+      // Создаем URL для QR-кода сразу
+      const qrUrl = `https://t.me/jkhtestbot1337_bot?start=qr_${newSessionId}`;
+      setQrCode(qrUrl);
 
-        // Начинаем проверку авторизации
-        startAuthCheck(newSessionId);
-      } else {
-        setError('Ошибка создания сессии');
+      // Пытаемся создать сессию на сервере (неблокирующе)
+      try {
+        const response = await fetch('/api/auth/create-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ session_id: newSessionId }),
+        });
+
+        console.log('Server response status:', response.status);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Server response data:', data);
+          
+          // Начинаем проверку авторизации только если сервер работает
+          startAuthCheck(newSessionId);
+        } else {
+          console.error('Server error:', response.status, response.statusText);
+          setError('Сервер недоступен, но QR-код создан. Используйте альтернативные способы.');
+        }
+      } catch (serverError) {
+        console.error('Server connection error:', serverError);
+        setError('Сервер недоступен, но QR-код создан. Используйте альтернативные способы.');
       }
     } catch (error) {
       console.error('Error generating QR code:', error);
-      setError('Ошибка создания QR-кода');
+      // Fallback: создаем QR-код даже при ошибке
+      const newSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const qrUrl = `https://t.me/jkhtestbot1337_bot?start=qr_${newSessionId}`;
+      setQrCode(qrUrl);
+      setError('Ошибка подключения к серверу, но QR-код создан');
     }
   };
 
   const startAuthCheck = (sessionId) => {
     setIsCheckingAuth(true);
     
+    let checkCount = 0;
+    const maxChecks = 150; // Максимум 5 минут (150 * 2 секунды)
+    
     const checkInterval = setInterval(async () => {
+      checkCount++;
+      
       try {
+        console.log(`Checking auth session ${sessionId}, attempt ${checkCount}`);
+        
         const response = await fetch(`/api/auth/check-session/${sessionId}`);
+        console.log('Check response status:', response.status);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('Check response data:', data);
+          
           if (data.success && data.user) {
             clearInterval(checkInterval);
             setIsCheckingAuth(false);
             handleTelegramAuth(data.user);
+            return;
           }
+        } else {
+          console.error('Check session error:', response.status);
         }
+        
+        // Останавливаем проверку после максимального количества попыток
+        if (checkCount >= maxChecks) {
+          clearInterval(checkInterval);
+          setIsCheckingAuth(false);
+          setError('Время ожидания истекло. Попробуйте еще раз.');
+        }
+        
       } catch (error) {
         console.error('Error checking auth:', error);
+        
+        // Останавливаем проверку при ошибках сети
+        if (checkCount >= 10) {
+          clearInterval(checkInterval);
+          setIsCheckingAuth(false);
+          setError('Ошибка подключения к серверу. Попробуйте альтернативные способы.');
+        }
       }
     }, 2000); // Проверяем каждые 2 секунды
 
@@ -77,6 +123,9 @@ const Login = () => {
     setTimeout(() => {
       clearInterval(checkInterval);
       setIsCheckingAuth(false);
+      if (checkCount < maxChecks) {
+        setError('Время ожидания истекло. Попробуйте еще раз.');
+      }
     }, 300000);
   };
 
@@ -179,6 +228,12 @@ const Login = () => {
                           <span className="text-sm">Ожидание авторизации...</span>
                         </div>
                       )}
+                      <button
+                        onClick={generateQRCode}
+                        className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Обновить QR-код
+                      </button>
                     </div>
                   </div>
                 ) : (
