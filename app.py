@@ -20,7 +20,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////var/www/uk-mini-app/uk_mini_app.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///uk_mini_app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Telegram Bot конфигурация
@@ -1652,7 +1652,7 @@ if __name__ == '__main__':
         try:
             # Проверяем, нужно ли пересоздать базу данных
             import os
-            db_path = '/var/www/uk-mini-app/uk_mini_app.db'  # Изменяем путь
+            db_path = 'uk_mini_app.db'  # Используем относительный путь
             
             # Создаем директорию instance если её нет
             instance_dir = '/var/www/uk-mini-app/instance'
@@ -1664,7 +1664,8 @@ if __name__ == '__main__':
             if os.path.exists(db_path):
                 # Проверяем структуру таблицы complaint
                 try:
-                    result = db.session.execute("PRAGMA table_info(complaint)")
+                    from sqlalchemy import text
+                    result = db.session.execute(text("PRAGMA table_info(complaint)"))
                     columns = [row[1] for row in result.fetchall()]
                     
                     # Если отсутствует колонка assigned_to_name, пересоздаем БД
@@ -1693,6 +1694,11 @@ if __name__ == '__main__':
             if os.path.exists(db_path):
                 os.chmod(db_path, 0o666)
                 print(f"Set permissions on database file: {db_path}")
+                
+                # Также устанавливаем права на директорию
+                db_dir = os.path.dirname(db_path)
+                os.chmod(db_dir, 0o755)
+                print(f"Set permissions on database directory: {db_dir}")
             
             # Создаем тестового пользователя, если его нет
             test_user = User.query.filter_by(telegram_id='123456789').first()
