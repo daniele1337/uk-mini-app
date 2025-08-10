@@ -12,6 +12,8 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 import threading
 import time
+import sys
+sys.path.append('/var/www/uk-mini-app')
 
 # Настройка логирования
 logging.basicConfig(

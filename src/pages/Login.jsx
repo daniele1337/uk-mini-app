@@ -47,7 +47,7 @@ const Login = () => {
       console.log('📝 Создан session ID:', newSessionId);
 
       // Создаем URL для QR-кода сразу
-      const qrUrl = `https://t.me/jkhtestbot1337_bot?start=qr_${newSessionId}`;
+      const qrUrl = `https://t.me/ЖКХ_тест_bot?start=qr_${newSessionId}`;
       console.log('🔗 QR URL:', qrUrl);
       
       // Проверяем, что URL корректный
@@ -91,7 +91,7 @@ const Login = () => {
       console.error('💥 Критическая ошибка генерации QR-кода:', error);
       // Fallback: создаем QR-код даже при ошибке
       const newSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const qrUrl = `https://t.me/jkhtestbot1337_bot?start=qr_${newSessionId}`;
+      const qrUrl = `https://t.me/ЖКХ_тест_bot?start=qr_${newSessionId}`;
       setQrCode(qrUrl);
       setError('Ошибка подключения к серверу, но QR-код создан');
     }
