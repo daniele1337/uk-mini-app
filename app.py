@@ -1670,6 +1670,42 @@ def broadcast_telegram_notification(title, message, notification_type='info', ta
         'failed_count': total_count - success_count
     }
 
+@app.route('/api/admin/create', methods=['POST'])
+def create_admin():
+    """Создание администратора (для разработки)"""
+    try:
+        data = request.get_json()
+        telegram_id = data.get('telegram_id')
+        
+        if not telegram_id:
+            return jsonify({'error': 'Telegram ID required'}), 400
+        
+        # Проверяем, существует ли пользователь
+        user = User.query.filter_by(telegram_id=telegram_id).first()
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Делаем пользователя админом
+        user.is_admin = True
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'User {user.first_name} {user.last_name} is now admin',
+            'user': {
+                'id': user.id,
+                'telegram_id': user.telegram_id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_admin': user.is_admin
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error creating admin: {e}")
+        return jsonify({'error': 'Failed to create admin'}), 500
+
 if __name__ == '__main__':
     # Создаем таблицы в базе данных
     with app.app_context():
@@ -1686,7 +1722,7 @@ if __name__ == '__main__':
             
             # Проверяем существование базы данных
             if os.path.exists(db_path):
-                # Проверяем структуру таблицы complaint
+                # Проверяем структуру таблицы complaint только если БД существует
                 try:
                     from sqlalchemy import text
                     result = db.session.execute(text("PRAGMA table_info(complaint)"))
@@ -1697,22 +1733,28 @@ if __name__ == '__main__':
                         print("Database structure outdated, recreating...")
                         os.remove(db_path)
                         print("Old database removed")
+                        # Создаем новую БД
+                        db.create_all()
+                        print("Database tables created successfully")
                     else:
                         print("Database structure is up to date")
+                        # Просто создаем таблицы если их нет
+                        db.create_all()
+                        print("Database tables verified successfully")
                 except Exception as e:
                     print(f"Error checking database structure: {e}")
                     print("Recreating database...")
                     if os.path.exists(db_path):
                         os.remove(db_path)
                     print("Old database removed")
+                    # Создаем новую БД
+                    db.create_all()
+                    print("Database tables created successfully")
             else:
                 print("Database file not found, creating new one...")
-            
-            # Обновляем конфигурацию базы данных
-            app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-            
-            db.create_all()
-            print("Database tables created successfully")
+                # Создаем новую БД
+                db.create_all()
+                print("Database tables created successfully")
             
             # Устанавливаем правильные права на файл базы данных
             if os.path.exists(db_path):
@@ -1723,26 +1765,6 @@ if __name__ == '__main__':
                 db_dir = os.path.dirname(db_path)
                 os.chmod(db_dir, 0o755)
                 print(f"Set permissions on database directory: {db_dir}")
-            
-            # Создаем тестового пользователя, если его нет
-            test_user = User.query.filter_by(telegram_id='123456789').first()
-            if not test_user:
-                test_user = User(
-                    telegram_id='123456789',
-                    first_name='Тестовый',
-                    last_name='Пользователь',
-                    username='test_user',
-                    apartment='15',
-                    building='3',
-                    street='Ленина',
-                    phone='+7 (999) 123-45-67',
-                    email='test@example.com',
-                    is_admin=False,
-                    is_active=True
-                )
-                db.session.add(test_user)
-                db.session.commit()
-                print("Test user created successfully")
             
             # Создаем тестовые типы счетчиков
             meter_types = [

@@ -28,6 +28,12 @@ const Header = () => {
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
 
+  // Добавляем админ-панель в навигацию для админов
+  const adminNavigationItems = [
+    ...navigationItems,
+    { icon: Settings, label: 'Админ-панель', path: '/admin' }
+  ];
+
   const isActive = (path) => location.pathname === path;
 
   return (
@@ -49,7 +55,7 @@ const Header = () => {
 
           {/* Навигация для десктопа */}
           <div className="hidden md:flex items-center gap-1">
-            {navigationItems.map((item, index) => (
+            {(user?.is_admin ? adminNavigationItems : navigationItems).map((item, index) => (
               <button
                 key={index}
                 onClick={() => navigate(item.path)}
@@ -106,7 +112,7 @@ const Header = () => {
 
                   {/* Навигация для мобильных устройств */}
                   <div className="md:hidden py-2">
-                    {navigationItems.map((item, index) => (
+                    {(user?.is_admin ? adminNavigationItems : navigationItems).map((item, index) => (
                       <button
                         key={index}
                         onClick={() => {
