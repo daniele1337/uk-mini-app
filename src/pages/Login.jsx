@@ -6,6 +6,7 @@ const Login = () => {
   const { loginWithTelegram, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [telegramId, setTelegramId] = useState('');
 
   useEffect(() => {
     // Проверяем, есть ли данные от Telegram Web App
@@ -100,6 +101,21 @@ const Login = () => {
     }
   };
 
+  const handleBrowserLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      await loginWithTelegram({ id: telegramId });
+    } catch (error) {
+      setError('Ошибка авторизации. Попробуйте еще раз.');
+      console.error('Browser auth error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleManualLogin = () => {
     // Показываем сообщение о том, что нужно использовать Telegram
     alert('Для входа в систему используйте Telegram Mini App. В браузерной версии вход недоступен.');
@@ -181,15 +197,67 @@ const Login = () => {
                   Открыть мини-апп
                 </button>
               </div>
-              
-              {/* Инструкция по входу */}
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-medium text-blue-800 mb-2">Как войти:</h3>
-                <div className="text-sm text-blue-700 space-y-1">
-                  <p>1. Нажмите кнопку "Войти через Telegram" выше</p>
-                  <p>2. Или откройте бота: <a href="https://t.me/jkhtestbot1337_bot" target="_blank" rel="noopener noreferrer" className="underline">@jkhtestbot1337_bot</a></p>
-                  <p>3. Отправьте команду <code className="bg-blue-100 px-1 rounded">/start</code></p>
+            </div>
+
+            {/* Разделитель */}
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">или войдите в браузере</span>
+              </div>
+            </div>
+
+            {/* Форма входа для браузера */}
+            <div className="mb-6">
+              <form onSubmit={handleBrowserLogin} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telegram ID
+                  </label>
+                  <input
+                    type="text"
+                    value={telegramId}
+                    onChange={(e) => setTelegramId(e.target.value)}
+                    placeholder="Введите ваш Telegram ID"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Не знаете ID? Напишите боту @userinfobot
+                  </p>
                 </div>
+                
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-3 ${
+                    isLoading
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-green-500 to-blue-600 text-white hover:from-green-600 hover:to-blue-700 shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  {isLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  ) : (
+                    <Home className="w-5 h-5" />
+                  )}
+                  {isLoading ? 'Вход...' : 'Войти в браузере'}
+                </button>
+              </form>
+            </div>
+
+            {/* Инструкция по входу */}
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="font-medium text-blue-800 mb-2">Способы входа:</h3>
+              <div className="text-sm text-blue-700 space-y-1">
+                <p><strong>Через Telegram:</strong></p>
+                <p>• Нажмите "Войти через Telegram" или "Открыть мини-апп"</p>
+                <p>• Или откройте бота: <a href="https://t.me/jkhtestbot1337_bot" target="_blank" rel="noopener noreferrer" className="underline">@jkhtestbot1337_bot</a></p>
+                <p><strong>В браузере:</strong></p>
+                <p>• Введите ваш Telegram ID (узнать у @userinfobot)</p>
+                <p>• Нажмите "Войти в браузере"</p>
               </div>
             </div>
 
