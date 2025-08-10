@@ -1649,6 +1649,14 @@ def broadcast_telegram_notification(title, message, notification_type='info', ta
 if __name__ == '__main__':
     # Создаем таблицы в базе данных
     with app.app_context():
+        # Удаляем старую базу данных и создаем новую
+        import os
+        db_path = 'instance/uk_mini_app.db'
+        if os.path.exists(db_path):
+            print("Removing old database...")
+            os.remove(db_path)
+            print("Old database removed")
+        
         db.create_all()
         print("Database tables created successfully")
         
