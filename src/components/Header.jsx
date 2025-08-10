@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Bell, User, LogOut, Menu, X, Home, Zap, MessageCircle } from 'lucide-react';
+import { Bell, User, LogOut, Menu, X, Home, Zap, MessageCircle, Settings } from 'lucide-react';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -127,6 +127,18 @@ const Header = () => {
 
                   {/* Пункты меню */}
                   <div className="py-2 border-t border-gray-100">
+                    {user?.is_admin && (
+                      <button
+                        onClick={() => {
+                          navigate('/admin');
+                          setShowMenu(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-purple-600 hover:text-purple-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 flex items-center gap-3 transition-all duration-300 font-medium"
+                      >
+                        <Settings className="w-5 h-5" />
+                        Админ-панель
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         navigate('/profile');
