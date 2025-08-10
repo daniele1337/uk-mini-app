@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { MessageCircle, Shield, Zap, Users, Home } from 'lucide-react';
+import { MessageCircle, Shield, Zap, Users, Home, Smartphone } from 'lucide-react';
 
 const Login = () => {
   const { loginWithTelegram, isAuthenticated } = useAuth();
@@ -29,6 +29,16 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOpenTelegram = () => {
+    // Открываем Telegram с ботом
+    window.open('https://t.me/jkhtestbot1337_bot?start=login', '_blank');
+  };
+
+  const handleOpenMiniApp = () => {
+    // Открываем мини-апп напрямую
+    window.open('https://t.me/jkhtestbot1337_bot/app', '_blank');
   };
 
   if (isAuthenticated) {
@@ -80,6 +90,43 @@ const Login = () => {
                 <Users className="w-5 h-5 text-purple-500" />
                 <span className="text-sm">Управление домом</span>
               </div>
+            </div>
+
+            {/* Кнопки для входа */}
+            <div className="space-y-3 mb-6">
+              {/* Основная кнопка - открыть мини-апп */}
+              <button
+                onClick={handleOpenMiniApp}
+                disabled={isLoading}
+                className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl ${
+                  isLoading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
+                }`}
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+                  </svg>
+                )}
+                {isLoading ? 'Вход...' : 'Открыть мини-апп'}
+              </button>
+
+              {/* Альтернативная кнопка - открыть бота */}
+              <button
+                onClick={handleOpenTelegram}
+                disabled={isLoading}
+                className={`w-full py-3 px-6 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-3 border ${
+                  isLoading
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <Smartphone className="w-5 h-5" />
+                Открыть бота в Telegram
+              </button>
             </div>
 
             {/* Информация о том, что нужно использовать Telegram */}
