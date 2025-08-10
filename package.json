@@ -1,6 +1,6 @@
 {
   "name": "uk-mini-app",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Telegram Mini App для управляющей компании",
   "main": "index.js",
   "scripts": {
