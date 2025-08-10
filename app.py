@@ -526,67 +526,85 @@ def get_meter_readings():
 @app.route('/api/meters/readings/<meter_type>', methods=['POST'])
 def submit_meter_reading(meter_type):
     """Отправить показания конкретного счетчика"""
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    user_id = verify_token(token)
-    
-    if not user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    data = request.get_json()
-    value = data.get('value')
-    notes = data.get('notes', '')
-    photo_data = data.get('photo')
-    
-    if not value:
-        return jsonify({'error': 'Value is required'}), 400
-    
-    # Получаем предыдущее показание
-    previous_reading = MeterReading.query.filter_by(
-        user_id=user_id, 
-        meter_type=meter_type
-    ).order_by(MeterReading.created_at.desc()).first()
-    
-    previous_value = previous_reading.value if previous_reading else None
-    consumption = value - previous_value if previous_value else None
-    
-    # Сохраняем фото если есть
-    photo_path = None
-    if photo_data:
-        try:
-            # Декодируем base64
-            photo_bytes = base64.b64decode(photo_data.split(',')[1])
-            filename = f"meter_{user_id}_{meter_type}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-            photo_path = f"uploads/{filename}"
+    try:
+        print(f"=== POST /api/meters/readings/{meter_type} ===")
+        
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        print(f"Token: {token[:20] if token else 'None'}...")
+        
+        user_id = verify_token(token)
+        print(f"User ID from token: {user_id}")
+        
+        if not user_id:
+            print("No valid user_id from token")
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Проверяем, существует ли пользователь
+        user = User.query.get(user_id)
+        if not user:
+            print(f"User {user_id} not found in database")
+            return jsonify({'error': 'User not found'}), 404
+        
+        print(f"User found: {user.first_name} {user.last_name}")
+        
+        data = request.get_json()
+        print(f"Request data: {data}")
+        
+        if not data:
+            print("No data provided")
+            return jsonify({'error': 'No data provided'}), 400
             
-            # Создаем папку если не существует
-            os.makedirs('uploads', exist_ok=True)
-            
-            with open(photo_path, 'wb') as f:
-                f.write(photo_bytes)
-        except Exception as e:
-            print(f"Error saving photo: {e}")
-    
-    # Создаем новое показание
-    reading = MeterReading(
-        user_id=user_id,
-        meter_type=meter_type,
-        value=value,
-        previous_value=previous_value,
-        consumption=consumption,
-        notes=notes,
-        photo_path=photo_path
-    )
-    
-    db.session.add(reading)
-    db.session.commit()
-    
-    return jsonify({
-        'id': reading.id,
-        'value': reading.value,
-        'previous_value': reading.previous_value,
-        'consumption': reading.consumption,
-        'created_at': reading.created_at.strftime('%Y-%m-%d %H:%M:%S')
-    })
+        value = data.get('value')
+        notes = data.get('notes', '')
+        photo_data = data.get('photo')
+        
+        if not value:
+            print("Value is required")
+            return jsonify({'error': 'Value is required'}), 400
+        
+        print(f"Value: {value}, Notes: {notes}")
+        
+        # Получаем предыдущее показание
+        previous_reading = MeterReading.query.filter_by(
+            user_id=user_id, 
+            meter_type=meter_type
+        ).order_by(MeterReading.created_at.desc()).first()
+        
+        previous_value = previous_reading.value if previous_reading else None
+        consumption = value - previous_value if previous_value else None
+        
+        print(f"Previous value: {previous_value}, Consumption: {consumption}")
+        
+        # Создаем новое показание
+        reading = MeterReading(
+            user_id=user_id,
+            meter_type=meter_type,
+            value=value,
+            previous_value=previous_value,
+            consumption=consumption,
+            notes=notes
+        )
+        
+        print("Creating meter reading object...")
+        db.session.add(reading)
+        print("Adding reading to database...")
+        db.session.commit()
+        print("Meter reading saved successfully")
+        
+        return jsonify({
+            'id': reading.id,
+            'value': reading.value,
+            'previous_value': reading.previous_value,
+            'consumption': reading.consumption,
+            'created_at': reading.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    except Exception as e:
+        print(f"Error creating meter reading: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 # Улучшенный API для обращений
 @app.route('/api/complaints', methods=['POST'])
