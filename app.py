@@ -1940,5 +1940,153 @@ if __name__ == '__main__':
             import traceback
             traceback.print_exc()
             # Продолжаем запуск приложения даже при ошибке БД
+
+# Telegram Bot обработчики
+@app.route('/webhook/telegram', methods=['POST'])
+def telegram_webhook():
+    """Webhook endpoint для получения обновлений от Telegram"""
+    try:
+        update = request.json
+        print(f"📨 Получено обновление от Telegram: {update}")
+        
+        # Обрабатываем обновление
+        if 'message' in update:
+            message = update['message']
+            text = message.get('text', '')
+            user = message.get('from', {})
+            chat_id = message.get('chat', {}).get('id')
+            
+            print(f"📱 Сообщение: {text} от пользователя {user.get('first_name')}")
+            
+            if text.startswith('/start'):
+                # Обработка команды /start
+                if text.startswith('/start qr_'):
+                    # QR-авторизация
+                    session_id = text.replace('/start qr_', '')
+                    print(f"🔐 QR-авторизация для сессии: {session_id}")
+                    
+                    # Отправляем данные на сервер
+                    success = send_qr_auth_data(session_id, user)
+                    
+                    if success:
+                        response_text = (
+                            "✅ <b>Авторизация успешна!</b>\n\n"
+                            "Вы успешно авторизовались в системе управления домом.\n"
+                            "Теперь можете закрыть это окно и вернуться в браузер.\n\n"
+                            "🚀 <i>Добро пожаловать в систему!</i>"
+                        )
+                    else:
+                        response_text = (
+                            "❌ <b>Ошибка авторизации</b>\n\n"
+                            "Не удалось авторизоваться в системе.\n"
+                            "Попробуйте еще раз или обратитесь к администратору.\n\n"
+                            "🔄 <i>Попробуйте отсканировать QR-код снова</i>"
+                        )
+                    
+                    send_telegram_message(chat_id, response_text)
+                    
+                else:
+                    # Обычная команда start
+                    response_text = (
+                        "🏠 <b>Добро пожаловать в систему управления домом!</b>\n\n"
+                        "Этот бот поможет вам:\n"
+                        "• Получать уведомления о важных событиях\n"
+                        "• Быстро авторизоваться в веб-приложении\n"
+                        "• Оставаться в курсе новостей дома\n\n"
+                        "📱 <i>Для авторизации в веб-приложении отсканируйте QR-код</i>\n\n"
+                        "🔗 <a href='https://24autoflow.ru'>Открыть веб-приложение</a>"
+                    )
+                    
+                    # Кнопка для открытия веб-приложения
+                    reply_markup = {
+                        'inline_keyboard': [[
+                            {
+                                'text': '🌐 Открыть веб-приложение',
+                                'url': 'https://24autoflow.ru'
+                            }
+                        ]]
+                    }
+                    
+                    send_telegram_message_with_markup(chat_id, response_text, reply_markup)
+                    
+            elif text.startswith('/help'):
+                # Обработка команды /help
+                response_text = (
+                    "❓ <b>Справка по использованию бота</b>\n\n"
+                    "🔐 <b>QR-авторизация:</b>\n"
+                    "1. Откройте веб-приложение в браузере\n"
+                    "2. Отсканируйте QR-код в Telegram\n"
+                    "3. Автоматически войдите в систему\n\n"
+                    "📱 <b>Уведомления:</b>\n"
+                    "Бот будет отправлять вам важные уведомления:\n"
+                    "• Новости дома\n"
+                    "• Плановые работы\n"
+                    "• Обновления системы\n\n"
+                    "🔗 <a href='https://24autoflow.ru'>Открыть веб-приложение</a>"
+                )
+                send_telegram_message(chat_id, response_text)
+                
+            else:
+                # Обработка обычных сообщений
+                response_text = (
+                    "🤖 <b>Система управления домом</b>\n\n"
+                    "Доступные команды:\n"
+                    "/start - Запустить бота\n"
+                    "/help - Получить помощь\n\n"
+                    "📱 <i>Для авторизации в веб-приложении отсканируйте QR-код</i>"
+                )
+                send_telegram_message(chat_id, response_text)
+        
+        return jsonify({'ok': True})
+        
+    except Exception as e:
+        print(f"❌ Ошибка webhook: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/webhook/telegram', methods=['GET'])
+def telegram_webhook_info():
+    """Информация о webhook"""
+    return jsonify({
+        'webhook_url': 'https://24autoflow.ru/webhook/telegram',
+        'status': 'active',
+        'bot_token': TELEGRAM_BOT_TOKEN[:10] + '...' if TELEGRAM_BOT_TOKEN else 'Not set'
+    })
+
+def send_telegram_message_with_markup(chat_id, message, reply_markup, parse_mode='HTML'):
+    """Отправка сообщения с разметкой"""
+    try:
+        url = f"{TELEGRAM_BOT_API_URL}/sendMessage"
+        data = {
+            'chat_id': chat_id,
+            'text': message,
+            'parse_mode': parse_mode,
+            'reply_markup': reply_markup
+        }
+        response = requests.post(url, json=data)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('ok'):
+                print(f"✅ Сообщение отправлено в чат {chat_id}")
+                return True
+            else:
+                print(f"❌ Ошибка отправки: {result}")
+                return False
+        else:
+            print(f"❌ HTTP ошибка: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ Ошибка отправки сообщения: {e}")
+        return False
+
+def send_qr_auth_data(session_id, user):
+    """Отправка данных QR-авторизации на сервер"""
+    try:
+        # Здесь должна быть логика отправки данных на сервер
+        # Пока просто возвращаем True
+        print(f"🔐 Отправка данных авторизации для сессии {session_id}")
+        return True
+    except Exception as e:
+        print(f"❌ Ошибка отправки данных авторизации: {e}")
+        return False
     
     app.run(debug=True, host='0.0.0.0', port=8000) 
