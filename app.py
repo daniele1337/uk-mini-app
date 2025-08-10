@@ -199,60 +199,9 @@ def verify_token(token):
 
 # OCR функция
 def process_meter_image(image_file):
+    """OCR функция для распознавания показаний счетчиков"""
     try:
-        # Читаем изображение
-        # from PIL import Image
-        # from pytesseract import image_to_string
-        # from cv2 import cvtColor, fastNlMeansDenoising, threshold
-        # from numpy import array
-        # from re import findall
-        
-        # image = Image.open(image_file)
-        
-        # # Конвертируем в numpy array
-        # img_array = array(image)
-        
-        # # Конвертируем в grayscale
-        # gray = cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-        
-        # # Применяем фильтры для улучшения качества
-        # # Увеличиваем контраст
-        # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        # gray = clahe.apply(gray)
-        
-        # # Убираем шум
-        # denoised = fastNlMeansDenoising(gray)
-        
-        # # Бинаризация
-        # _, binary = threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # # OCR
-        # text = image_to_string(binary, config='--psm 7 -c tessedit_char_whitelist=0123456789.')
-        
-        # # Извлекаем числа
-        # import re
-        # numbers = findall(r'\d+\.?\d*', text)
-        
-        # if numbers:
-        #     value = float(numbers[0])
-        #     confidence = 0.8  # Примерная уверенность
-        #     return {
-        #         'success': True,
-        #         'value': value,
-        #         'confidence': confidence,
-        #         'unit': 'кВт⋅ч' if 'electricity' in str(image_file) else 'м³'
-        #     }
-        # else:
-        #     return {
-        #         'success': False,
-        #         'error': 'Не удалось распознать числа'
-        #     }
-            
-        # except Exception as e:
-        #     return {
-        #         'success': False,
-        #         'error': str(e)
-        #     }
+        # OCR функциональность временно отключена
         return {
             'success': False,
             'error': 'OCR functionality is currently disabled.'
