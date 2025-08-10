@@ -50,6 +50,18 @@ npm install
 npm install -g vite http-server
 npm run build
 
+# Создаем директорию instance если её нет
+echo "📁 Создаем директорию instance..."
+mkdir -p /var/www/uk-mini-app/instance
+
+# Исправляем права доступа к базе данных
+echo "🔧 Исправляем права доступа к базе данных..."
+sudo chown -R www-data:www-data /var/www/uk-mini-app/instance/
+sudo chmod -R 755 /var/www/uk-mini-app/instance/
+if [ -f /var/www/uk-mini-app/instance/uk_mini_app.db ]; then
+    sudo chmod 666 /var/www/uk-mini-app/instance/uk_mini_app.db
+fi
+
 # Запускаем сервисы
 echo "🚀 Запускаем сервисы..."
 pm2 start ecosystem.config.js
