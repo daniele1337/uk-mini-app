@@ -21,6 +21,14 @@ const Login = () => {
   }, []);
 
   const loadTelegramWidget = () => {
+    console.log('Loading Telegram Login Widget...');
+    
+    // Проверяем, не загружен ли уже виджет
+    if (document.querySelector('script[src*="telegram-widget.js"]')) {
+      console.log('Telegram widget script already loaded');
+      return;
+    }
+
     // Загружаем Telegram Login Widget
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
@@ -29,6 +37,7 @@ const Login = () => {
     script.setAttribute('data-auth-url', window.location.origin);
     script.setAttribute('data-request-access', 'write');
     script.setAttribute('data-lang', 'ru');
+    script.setAttribute('data-radius', '8');
     script.async = true;
     
     // Обработчик успешной авторизации
@@ -37,7 +46,44 @@ const Login = () => {
       handleTelegramAuth(user);
     };
 
+    // Обработчик ошибок загрузки
+    script.onerror = () => {
+      console.error('Failed to load Telegram widget script');
+      showFallbackButton();
+    };
+
+    // Обработчик успешной загрузки
+    script.onload = () => {
+      console.log('Telegram widget script loaded successfully');
+    };
+
     document.head.appendChild(script);
+    
+    // Проверяем загрузку виджета через 3 секунды
+    setTimeout(() => {
+      const widget = document.querySelector('[data-telegram-login]');
+      if (!widget) {
+        console.log('Telegram widget not found, showing fallback');
+        showFallbackButton();
+      }
+    }, 3000);
+  };
+
+  const showFallbackButton = () => {
+    const widgetContainer = document.getElementById('telegram-login-widget');
+    if (widgetContainer) {
+      widgetContainer.innerHTML = `
+        <button 
+          onclick="window.open('https://t.me/jkhtestbot1337_bot?start=login', '_blank')"
+          class="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+          </svg>
+          Открыть в Telegram
+        </button>
+      `;
+    }
   };
 
   const handleTelegramAuth = async (userData) => {
@@ -113,7 +159,37 @@ const Login = () => {
             {/* Telegram Login Widget */}
             <div className="mb-6 text-center">
               <div id="telegram-login-widget" className="flex justify-center">
-                {/* Telegram Login Widget будет загружен сюда */}
+                {/* Кнопка входа через Telegram */}
+                <button
+                  onClick={() => window.open('https://t.me/jkhtestbot1337_bot?start=login', '_blank')}
+                  className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+                  </svg>
+                  Войти через Telegram
+                </button>
+              </div>
+              
+              {/* Альтернативная кнопка для мини-аппа */}
+              <div className="mt-3">
+                <button
+                  onClick={() => window.open('https://t.me/jkhtestbot1337_bot/app', '_blank')}
+                  className="w-full py-3 px-6 rounded-xl font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center gap-3"
+                >
+                  <Smartphone className="w-5 h-5" />
+                  Открыть мини-апп
+                </button>
+              </div>
+              
+              {/* Инструкция по входу */}
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-medium text-blue-800 mb-2">Как войти:</h3>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>1. Нажмите кнопку "Войти через Telegram" выше</p>
+                  <p>2. Или откройте бота: <a href="https://t.me/jkhtestbot1337_bot" target="_blank" rel="noopener noreferrer" className="underline">@jkhtestbot1337_bot</a></p>
+                  <p>3. Отправьте команду <code className="bg-blue-100 px-1 rounded">/start</code></p>
+                </div>
               </div>
             </div>
 
