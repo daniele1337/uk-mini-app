@@ -592,11 +592,17 @@ def submit_meter_reading(meter_type):
         print("Meter reading saved successfully")
         
         return jsonify({
-            'id': reading.id,
-            'value': reading.value,
-            'previous_value': reading.previous_value,
-            'consumption': reading.consumption,
-            'created_at': reading.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            'success': True,
+            'reading': {
+                'id': reading.id,
+                'value': reading.value,
+                'previous_value': reading.previous_value,
+                'consumption': reading.consumption,
+                'notes': reading.notes,
+                'is_verified': reading.is_verified,
+                'created_at': reading.created_at.isoformat(),
+                'updated_at': reading.updated_at.isoformat()
+            }
         })
         
     except Exception as e:
