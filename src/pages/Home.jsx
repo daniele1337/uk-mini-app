@@ -9,6 +9,8 @@ const Home = () => {
   const [notifications, setNotifications] = useState([]);
   const [isOnline, setIsOnline] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Проверяем авторизацию
@@ -19,11 +21,47 @@ const Home = () => {
       return;
     }
 
+    // Загружаем данные пользователя
+    loadUserData();
     // Проверяем подключение к API
     checkConnection();
     // Загружаем уведомления
     loadNotifications();
   }, [navigate]);
+
+  const loadUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        // Обновляем данные в localStorage
+        localStorage.setItem('user', JSON.stringify(data.user));
+      } else if (response.status === 401) {
+        console.log('Token expired, redirecting to login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+        return;
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      // Пробуем загрузить из localStorage
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const checkConnection = async () => {
     try {
@@ -104,12 +142,27 @@ const Home = () => {
       <div className="pt-16 pb-8 px-4">
         {/* Приветствие */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Добро пожаловать, Тестовый!
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Система управления домом - ваш удобный помощник
-          </p>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded mb-2 max-w-md mx-auto"></div>
+              <div className="h-6 bg-gray-200 rounded max-w-lg mx-auto"></div>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                Добро пожаловать, {user?.first_name || 'Пользователь'}!
+              </h1>
+              <p className="text-gray-600 text-lg">
+                Система управления домом - ваш удобный помощник
+              </p>
+              {user?.apartment && user?.building && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Квартира {user.apartment}, Дом {user.building}
+                  {user?.street && `, ${user.street}`}
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         {/* Карточки */}
