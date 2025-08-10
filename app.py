@@ -1891,49 +1891,67 @@ if __name__ == '__main__':
             
             # Устанавливаем правильные права на файл базы данных
             if os.path.exists(db_path):
-                os.chmod(db_path, 0o666)
-                print(f"Set permissions on database file: {db_path}")
+                try:
+                    os.chmod(db_path, 0o666)
+                    print(f"Set permissions on database file: {db_path}")
+                except Exception as e:
+                    print(f"Warning: Could not set permissions on database file: {e}")
                 
                 # Также устанавливаем права на директорию
                 db_dir = os.path.dirname(db_path)
-                os.chmod(db_dir, 0o755)
-                print(f"Set permissions on database directory: {db_dir}")
+                try:
+                    os.chmod(db_dir, 0o755)
+                    print(f"Set permissions on database directory: {db_dir}")
+                except Exception as e:
+                    print(f"Warning: Could not set permissions on database directory: {e}")
             
-            # Создаем тестовые типы счетчиков
-            meter_types = [
-                {'name': 'Электричество', 'code': 'electricity', 'unit': 'кВт·ч'},
-                {'name': 'Холодная вода', 'code': 'cold_water', 'unit': 'м³'},
-                {'name': 'Горячая вода', 'code': 'hot_water', 'unit': 'м³'},
-                {'name': 'Газ', 'code': 'gas', 'unit': 'м³'},
-                {'name': 'Отопление', 'code': 'heating', 'unit': 'Гкал'}
-            ]
-            
-            for mt_data in meter_types:
-                existing = MeterType.query.filter_by(code=mt_data['code']).first()
-                if not existing:
-                    meter_type = MeterType(**mt_data)
-                    db.session.add(meter_type)
-            
-            # Создаем тестовые категории обращений
-            complaint_categories = [
-                {'name': 'Сантехника', 'code': 'plumbing', 'description': 'Проблемы с водоснабжением, канализацией'},
-                {'name': 'Электрика', 'code': 'electricity', 'description': 'Проблемы с электричеством'},
-                {'name': 'Отопление', 'code': 'heating', 'description': 'Проблемы с отоплением'},
-                {'name': 'Уборка', 'code': 'cleaning', 'description': 'Проблемы с уборкой подъездов'},
-                {'name': 'Шум', 'code': 'noise', 'description': 'Жалобы на шум'},
-                {'name': 'Лифт', 'code': 'elevator', 'description': 'Проблемы с лифтом'},
-                {'name': 'Ремонт', 'code': 'repair', 'description': 'Общие вопросы ремонта'},
-                {'name': 'Общие вопросы', 'code': 'general', 'description': 'Другие вопросы'}
-            ]
-            
-            for cat_data in complaint_categories:
-                existing = ComplaintCategory.query.filter_by(code=cat_data['code']).first()
-                if not existing:
-                    category = ComplaintCategory(**cat_data)
-                    db.session.add(category)
-            
-            db.session.commit()
-            print("Test data initialized successfully")
+            # Создаем тестовые данные только если база данных доступна для записи
+            try:
+                # Проверяем, можем ли мы писать в базу данных
+                test_query = db.session.execute(text("SELECT 1"))
+                test_query.fetchone()
+                
+                # Создаем тестовые типы счетчиков
+                meter_types = [
+                    {'name': 'Электричество', 'code': 'electricity', 'unit': 'кВт·ч'},
+                    {'name': 'Холодная вода', 'code': 'cold_water', 'unit': 'м³'},
+                    {'name': 'Горячая вода', 'code': 'hot_water', 'unit': 'м³'},
+                    {'name': 'Газ', 'code': 'gas', 'unit': 'м³'},
+                    {'name': 'Отопление', 'code': 'heating', 'unit': 'Гкал'}
+                ]
+                
+                for mt_data in meter_types:
+                    existing = MeterType.query.filter_by(code=mt_data['code']).first()
+                    if not existing:
+                        meter_type = MeterType(**mt_data)
+                        db.session.add(meter_type)
+                
+                # Создаем тестовые категории обращений
+                complaint_categories = [
+                    {'name': 'Сантехника', 'code': 'plumbing', 'description': 'Проблемы с водоснабжением, канализацией'},
+                    {'name': 'Электрика', 'code': 'electricity', 'description': 'Проблемы с электричеством'},
+                    {'name': 'Отопление', 'code': 'heating', 'description': 'Проблемы с отоплением'},
+                    {'name': 'Уборка', 'code': 'cleaning', 'description': 'Проблемы с уборкой подъездов'},
+                    {'name': 'Шум', 'code': 'noise', 'description': 'Жалобы на шум'},
+                    {'name': 'Лифт', 'code': 'elevator', 'description': 'Проблемы с лифтом'},
+                    {'name': 'Ремонт', 'code': 'repair', 'description': 'Общие вопросы ремонта'},
+                    {'name': 'Общие вопросы', 'code': 'general', 'description': 'Другие вопросы'}
+                ]
+                
+                for cat_data in complaint_categories:
+                    existing = ComplaintCategory.query.filter_by(code=cat_data['code']).first()
+                    if not existing:
+                        category = ComplaintCategory(**cat_data)
+                        db.session.add(category)
+                
+                db.session.commit()
+                print("Test data initialized successfully")
+                
+            except Exception as e:
+                print(f"Warning: Could not initialize test data (database may be read-only): {e}")
+                print("Application will continue without test data")
+                # Откатываем сессию в случае ошибки
+                db.session.rollback()
             
         except Exception as e:
             print(f"Error during database initialization: {e}")
