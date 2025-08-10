@@ -55,6 +55,31 @@ echo "🚀 Запускаем сервисы..."
 pm2 start ecosystem.config.js
 pm2 save
 
+# Запускаем Telegram бота
+echo "🤖 Запускаем Telegram бота..."
+pm2 start telegram_bot.py --name telegram-bot
+pm2 save
+
 echo "✅ Обновление завершено!"
 echo "📊 Статус PM2:"
 pm2 status
+
+# Проверяем, что все работает
+echo "🔍 Проверяем работоспособность..."
+sleep 3
+
+# Проверяем API
+if curl -s https://24autoflow.ru/api/health > /dev/null; then
+    echo "✅ API работает"
+else
+    echo "⚠️ API недоступен"
+fi
+
+# Проверяем webhook
+if curl -s https://24autoflow.ru/webhook/telegram > /dev/null; then
+    echo "✅ Webhook работает"
+else
+    echo "⚠️ Webhook недоступен"
+fi
+
+echo "🎉 Все сервисы запущены!"
