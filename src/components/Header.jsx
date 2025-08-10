@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, User, LogOut, Menu, X, Home, Zap, MessageCircle, Settings } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
   const [user, setUser] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -16,9 +18,7 @@ const Header = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
+    logout(); // Используем функцию logout из AuthContext
   };
 
   const navigationItems = [

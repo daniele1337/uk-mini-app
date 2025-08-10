@@ -25,9 +25,16 @@ export const AuthProvider = ({ children }) => {
 
     if (savedToken && savedUser) {
       try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-        setIsAuthenticated(true);
+        const parsedUser = JSON.parse(savedUser);
+        // Проверяем, что данные пользователя корректные
+        if (parsedUser && parsedUser.id && parsedUser.telegram_id) {
+          setToken(savedToken);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        } else {
+          console.error('Invalid user data structure');
+          logout();
+        }
       } catch (error) {
         console.error('Error parsing saved user data:', error);
         logout();
@@ -75,14 +82,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Сначала очищаем localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Затем обновляем состояние
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
     
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    navigate('/login');
+    // Используем window.location для надежного перенаправления
+    window.location.href = '/login';
   };
 
   const updateUser = (updatedUser) => {
