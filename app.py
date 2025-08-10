@@ -2097,35 +2097,70 @@ def send_telegram_message_with_markup(chat_id, message, reply_markup, parse_mode
         return False
 
 def send_qr_auth_data(session_id, user):
-    """Отправка данных QR-авторизации на сервер"""
+    """Обработка данных QR-авторизации"""
     try:
-        url = f"https://24autoflow.ru/api/auth/qr-login"
-        data = {
-            'session_id': session_id,
-            'telegram_id': user.get('id'),
-            'first_name': user.get('first_name', ''),
-            'last_name': user.get('last_name', ''),
-            'username': user.get('username', '')
+        telegram_id = user.get('id')
+        first_name = user.get('first_name', '')
+        last_name = user.get('last_name', '')
+        username = user.get('username', '')
+        
+        if not session_id or not telegram_id:
+            print(f"❌ Отсутствуют обязательные данные: session_id={session_id}, telegram_id={telegram_id}")
+            return False
+        
+        # Проверяем, существует ли сессия
+        if session_id not in qr_sessions:
+            print(f"❌ Недействительная сессия: {session_id}")
+            return False
+        
+        # Проверяем, не истекла ли сессия
+        session_data = qr_sessions[session_id]
+        if datetime.datetime.now() - session_data['created_at'] > datetime.timedelta(minutes=5):
+            del qr_sessions[session_id]
+            print(f"❌ Сессия истекла: {session_id}")
+            return False
+        
+        # Проверяем, существует ли пользователь
+        user_obj = User.query.filter_by(telegram_id=str(telegram_id)).first()
+        
+        if not user_obj:
+            # Создаем нового пользователя
+            user_obj = User(
+                telegram_id=str(telegram_id),
+                first_name=first_name,
+                last_name=last_name,
+                username=username,
+                is_active=True
+            )
+            db.session.add(user_obj)
+            db.session.commit()
+            print(f"✅ Новый пользователь создан через QR: {first_name} {last_name} (ID: {telegram_id})")
+        else:
+            print(f"✅ Пользователь найден через QR: {user_obj.first_name} {user_obj.last_name}")
+        
+        # Сохраняем данные пользователя в сессии
+        user_data = {
+            'id': user_obj.id,
+            'telegram_id': user_obj.telegram_id,
+            'first_name': user_obj.first_name,
+            'last_name': user_obj.last_name,
+            'username': user_obj.username,
+            'apartment': user_obj.apartment,
+            'building': user_obj.building,
+            'street': user_obj.street,
+            'phone': user_obj.phone,
+            'email': user_obj.email,
+            'is_admin': user_obj.is_admin,
+            'is_active': user_obj.is_active
         }
         
-        print(f"🔐 Отправка данных авторизации для сессии {session_id}: {data}")
+        qr_sessions[session_id]['user'] = user_data
         
-        response = requests.post(url, json=data, timeout=10)
-        
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('success'):
-                print(f"✅ QR-авторизация успешна для пользователя {user.get('first_name')}")
-                return True
-            else:
-                print(f"❌ Ошибка QR-авторизации: {result}")
-                return False
-        else:
-            print(f"❌ HTTP ошибка QR-авторизации: {response.status_code} - {response.text}")
-            return False
+        print(f"✅ QR-авторизация успешна для пользователя {first_name}")
+        return True
             
     except Exception as e:
-        print(f"❌ Ошибка отправки данных авторизации: {e}")
+        print(f"❌ Ошибка обработки QR-авторизации: {e}")
         return False
     
     app.run(debug=True, host='0.0.0.0', port=8000) 
