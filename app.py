@@ -2081,10 +2081,31 @@ def send_telegram_message_with_markup(chat_id, message, reply_markup, parse_mode
 def send_qr_auth_data(session_id, user):
     """Отправка данных QR-авторизации на сервер"""
     try:
-        # Здесь должна быть логика отправки данных на сервер
-        # Пока просто возвращаем True
-        print(f"🔐 Отправка данных авторизации для сессии {session_id}")
-        return True
+        url = f"https://24autoflow.ru/api/auth/qr-login"
+        data = {
+            'session_id': session_id,
+            'telegram_id': user.get('id'),
+            'first_name': user.get('first_name', ''),
+            'last_name': user.get('last_name', ''),
+            'username': user.get('username', '')
+        }
+        
+        print(f"🔐 Отправка данных авторизации для сессии {session_id}: {data}")
+        
+        response = requests.post(url, json=data, timeout=10)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                print(f"✅ QR-авторизация успешна для пользователя {user.get('first_name')}")
+                return True
+            else:
+                print(f"❌ Ошибка QR-авторизации: {result}")
+                return False
+        else:
+            print(f"❌ HTTP ошибка QR-авторизации: {response.status_code} - {response.text}")
+            return False
+            
     except Exception as e:
         print(f"❌ Ошибка отправки данных авторизации: {e}")
         return False

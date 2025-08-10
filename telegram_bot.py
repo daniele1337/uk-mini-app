@@ -123,10 +123,10 @@ class TelegramBot:
             url = f"{self.api_base_url}/auth/qr-login"
             data = {
                 'session_id': session_id,
-                'telegram_id': user.id,
-                'first_name': user.first_name,
-                'last_name': user.last_name or '',
-                'username': user.username or ''
+                'telegram_id': user.get('id'),
+                'first_name': user.get('first_name', ''),
+                'last_name': user.get('last_name', ''),
+                'username': user.get('username', '')
             }
             
             logger.info(f"📤 Отправляем данные QR-авторизации: {data}")
@@ -136,13 +136,13 @@ class TelegramBot:
             if response.status_code == 200:
                 result = response.json()
                 if result.get('success'):
-                    logger.info(f"✅ QR-авторизация успешна для пользователя {user.first_name}")
+                    logger.info(f"✅ QR-авторизация успешна для пользователя {user.get('first_name')}")
                     return True
                 else:
                     logger.error(f"❌ Ошибка QR-авторизации: {result}")
                     return False
             else:
-                logger.error(f"❌ HTTP ошибка QR-авторизации: {response.status_code}")
+                logger.error(f"❌ HTTP ошибка QR-авторизации: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
