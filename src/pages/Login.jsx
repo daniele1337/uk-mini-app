@@ -14,8 +14,31 @@ const Login = () => {
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         handleTelegramAuth(tg.initDataUnsafe.user);
       }
+    } else {
+      // Если не в Telegram Web App, загружаем Telegram Login Widget
+      loadTelegramWidget();
     }
   }, []);
+
+  const loadTelegramWidget = () => {
+    // Загружаем Telegram Login Widget
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', 'jkhtestbot1337_bot');
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-auth-url', window.location.origin);
+    script.setAttribute('data-request-access', 'write');
+    script.setAttribute('data-lang', 'ru');
+    script.async = true;
+    
+    // Обработчик успешной авторизации
+    window.onTelegramAuth = (user) => {
+      console.log('Telegram auth success:', user);
+      handleTelegramAuth(user);
+    };
+
+    document.head.appendChild(script);
+  };
 
   const handleTelegramAuth = async (userData) => {
     setIsLoading(true);
@@ -32,14 +55,8 @@ const Login = () => {
   };
 
   const handleManualLogin = () => {
-    // Для тестирования - создаем тестового пользователя
-    const testUser = {
-      id: 123456789,
-      first_name: 'Тестовый',
-      last_name: 'Пользователь',
-      username: 'test_user'
-    };
-    handleTelegramAuth(testUser);
+    // Показываем сообщение о том, что нужно использовать Telegram
+    alert('Для входа в систему используйте Telegram Mini App. В браузерной версии вход недоступен.');
   };
 
   if (isAuthenticated) {
@@ -93,32 +110,19 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Кнопка входа через Telegram */}
-            <button
-              onClick={handleManualLogin}
-              disabled={isLoading}
-              className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-3 mb-4 ${
-                isLoading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl'
-              }`}
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                <MessageCircle className="w-5 h-5" />
-              )}
-              {isLoading ? 'Вход...' : 'Войти через Telegram'}
-            </button>
+            {/* Telegram Login Widget */}
+            <div className="mb-6 text-center">
+              <div id="telegram-login-widget" className="flex justify-center">
+                {/* Telegram Login Widget будет загружен сюда */}
+              </div>
+            </div>
 
-            {/* Альтернативная кнопка для тестирования */}
-            <button
-              onClick={handleManualLogin}
-              className="w-full py-3 px-6 rounded-xl font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center gap-3"
-            >
-              <Smartphone className="w-5 h-5" />
-              Тестовый вход
-            </button>
+            {/* Информация о том, что нужно использовать Telegram */}
+            <div className="text-center mb-4">
+              <p className="text-sm text-gray-600">
+                🔐 Авторизация через Telegram обеспечивает безопасность
+              </p>
+            </div>
 
             {/* Ошибка */}
             {error && (

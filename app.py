@@ -216,7 +216,7 @@ def process_meter_image(image_file):
 # Улучшенная авторизация через Telegram
 @app.route('/api/auth/telegram', methods=['POST'])
 def telegram_auth():
-    """Авторизация через Telegram Web App"""
+    """Авторизация через Telegram Web App или Telegram Login Widget"""
     try:
         data = request.get_json()
         
@@ -243,6 +243,9 @@ def telegram_auth():
             )
             db.session.add(user)
             db.session.commit()
+            print(f"New user created: {first_name} {last_name} (ID: {telegram_id})")
+        else:
+            print(f"User found: {user.first_name} {user.last_name}")
         
         # Генерируем токен
         token = generate_token(user.id)

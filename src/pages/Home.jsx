@@ -126,18 +126,6 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Статус подключения */}
-      <div className={`fixed top-0 left-0 right-0 z-50 p-2 text-center text-sm font-medium ${
-        isOnline 
-          ? 'bg-green-100 text-green-800 border-b border-green-200' 
-          : 'bg-orange-100 text-orange-800 border-b border-orange-200'
-      }`}>
-        <div className="flex items-center justify-center gap-2">
-          {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-          {isOnline ? 'Подключено к серверу' : 'Работаем в офлайн режиме. Данные сохраняются локально.'}
-        </div>
-      </div>
-
       {/* Главный контент */}
       <div className="pt-16 pb-8 px-4">
         {/* Приветствие */}

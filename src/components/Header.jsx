@@ -28,12 +28,6 @@ const Header = () => {
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
 
-  // Добавляем админ-панель в навигацию для админов
-  const adminNavigationItems = [
-    ...navigationItems,
-    { icon: Settings, label: 'Админ-панель', path: '/admin' }
-  ];
-
   const isActive = (path) => location.pathname === path;
 
   return (
@@ -55,7 +49,7 @@ const Header = () => {
 
           {/* Навигация для десктопа */}
           <div className="hidden md:flex items-center gap-1">
-            {(user?.is_admin ? adminNavigationItems : navigationItems).map((item, index) => (
+            {navigationItems.map((item, index) => (
               <button
                 key={index}
                 onClick={() => navigate(item.path)}
@@ -112,7 +106,7 @@ const Header = () => {
 
                   {/* Навигация для мобильных устройств */}
                   <div className="md:hidden py-2">
-                    {(user?.is_admin ? adminNavigationItems : navigationItems).map((item, index) => (
+                    {navigationItems.map((item, index) => (
                       <button
                         key={index}
                         onClick={() => {
@@ -133,18 +127,6 @@ const Header = () => {
 
                   {/* Пункты меню */}
                   <div className="py-2 border-t border-gray-100">
-                    {user?.is_admin && (
-                      <button
-                        onClick={() => {
-                          navigate('/admin');
-                          setShowMenu(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-purple-600 hover:text-purple-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 flex items-center gap-3 transition-all duration-300 font-medium"
-                      >
-                        <Settings className="w-5 h-5" />
-                        Админ-панель
-                      </button>
-                    )}
                     <button
                       onClick={() => {
                         navigate('/profile');
