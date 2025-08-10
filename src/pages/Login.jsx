@@ -11,13 +11,26 @@ const Login = () => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(false);
 
   useEffect(() => {
+    console.log('🔄 useEffect запущен');
+    console.log('📱 Telegram WebApp доступен:', !!window.Telegram);
+    console.log('🌐 Telegram WebApp объект:', window.Telegram);
+    
     // Проверяем, есть ли данные от Telegram Web App
     if (window.Telegram && window.Telegram.WebApp) {
       const tg = window.Telegram.WebApp;
+      console.log('📱 Telegram WebApp объект:', tg);
+      console.log('🔐 initDataUnsafe:', tg.initDataUnsafe);
+      console.log('👤 Пользователь:', tg.initDataUnsafe?.user);
+      
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        console.log('✅ Найдены данные пользователя, авторизуемся...');
         handleTelegramAuth(tg.initDataUnsafe.user);
+      } else {
+        console.log('❌ Данные пользователя не найдены, создаем QR-код');
+        generateQRCode();
       }
     } else {
+      console.log('🌐 Не в Telegram WebApp, создаем QR-код для браузера');
       // Если не в Telegram Web App, создаем QR-код для авторизации
       generateQRCode();
     }
@@ -25,18 +38,30 @@ const Login = () => {
 
   const generateQRCode = async () => {
     try {
+      console.log('🚀 Начинаем генерацию QR-кода...');
+      
       // Генерируем уникальный session ID
       const newSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       setSessionId(newSessionId);
 
-      console.log('Creating session with ID:', newSessionId);
+      console.log('📝 Создан session ID:', newSessionId);
 
       // Создаем URL для QR-кода сразу
       const qrUrl = `https://t.me/jkhtestbot1337_bot?start=qr_${newSessionId}`;
+      console.log('🔗 QR URL:', qrUrl);
+      
+      // Проверяем, что URL корректный
+      if (!qrUrl || qrUrl.length < 10) {
+        throw new Error('Некорректный QR URL');
+      }
+      
       setQrCode(qrUrl);
+      console.log('✅ QR-код установлен в состояние');
 
       // Пытаемся создать сессию на сервере (неблокирующе)
       try {
+        console.log('🌐 Отправляем запрос на создание сессии...');
+        
         const response = await fetch('/api/auth/create-session', {
           method: 'POST',
           headers: {
@@ -45,24 +70,25 @@ const Login = () => {
           body: JSON.stringify({ session_id: newSessionId }),
         });
 
-        console.log('Server response status:', response.status);
+        console.log('📡 Ответ сервера:', response.status, response.statusText);
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Server response data:', data);
+          console.log('📊 Данные ответа:', data);
           
           // Начинаем проверку авторизации только если сервер работает
+          console.log('🔄 Начинаем проверку авторизации...');
           startAuthCheck(newSessionId);
         } else {
-          console.error('Server error:', response.status, response.statusText);
+          console.error('❌ Ошибка сервера:', response.status, response.statusText);
           setError('Сервер недоступен, но QR-код создан. Используйте альтернативные способы.');
         }
       } catch (serverError) {
-        console.error('Server connection error:', serverError);
+        console.error('🌐 Ошибка подключения к серверу:', serverError);
         setError('Сервер недоступен, но QR-код создан. Используйте альтернативные способы.');
       }
     } catch (error) {
-      console.error('Error generating QR code:', error);
+      console.error('💥 Критическая ошибка генерации QR-кода:', error);
       // Fallback: создаем QR-код даже при ошибке
       const newSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const qrUrl = `https://t.me/jkhtestbot1337_bot?start=qr_${newSessionId}`;

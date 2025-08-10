@@ -1,119 +1,124 @@
 #!/usr/bin/env python3
-"""
-Тестовый скрипт для проверки API
-"""
-
 import requests
 import json
 
-# Базовый URL
-BASE_URL = "http://localhost:8000"
+# URL сервера
+BASE_URL = "https://24autoflow.ru"
 
-def test_health():
-    """Тест проверки здоровья сервера"""
-    print("=== Тест /api/health ===")
+def test_create_session():
+    """Тест создания сессии"""
+    print("🔍 Тестируем создание сессии...")
+    
+    url = f"{BASE_URL}/api/auth/create-session"
+    data = {"session_id": "test_session_123"}
+    
     try:
-        response = requests.get(f"{BASE_URL}/api/health")
+        response = requests.post(url, json=data, timeout=10)
         print(f"Status: {response.status_code}")
-        print(f"Response: {response.json()}")
-        return response.status_code == 200
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
-
-def test_database():
-    """Тест подключения к базе данных"""
-    print("\n=== Тест /api/test ===")
-    try:
-        response = requests.get(f"{BASE_URL}/api/test")
-        print(f"Status: {response.status_code}")
-        print(f"Response: {response.json()}")
-        return response.status_code == 200
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
-
-def test_telegram_auth():
-    """Тест авторизации через Telegram"""
-    print("\n=== Тест /api/auth/telegram ===")
-    try:
-        # Тестовые данные Telegram
-        test_data = {
-            "id": 123456789,
-            "first_name": "Тестовый",
-            "last_name": "Пользователь",
-            "username": "test_user",
-            "photo_url": None,
-            "auth_date": 1234567890,
-            "hash": "test_hash"
-        }
-        
-        response = requests.post(f"{BASE_URL}/api/auth/telegram", json=test_data)
-        print(f"Status: {response.status_code}")
-        print(f"Response: {response.json()}")
+        print(f"Response: {response.text}")
         
         if response.status_code == 200:
-            return response.json().get('token')
-        return None
+            print("✅ Создание сессии работает!")
+            return True
+        else:
+            print("❌ Ошибка создания сессии")
+            return False
+            
     except Exception as e:
-        print(f"Error: {e}")
-        return None
+        print(f"❌ Ошибка подключения: {e}")
+        return False
 
-def test_complaints_with_token(token):
-    """Тест работы с обращениями"""
-    print(f"\n=== Тест /api/complaints с токеном ===")
-    headers = {"Authorization": f"Bearer {token}"}
+def test_check_session():
+    """Тест проверки сессии"""
+    print("\n🔍 Тестируем проверку сессии...")
     
-    # Тест получения обращений
-    print("GET /api/complaints")
+    url = f"{BASE_URL}/api/auth/check-session/test_session_123"
+    
     try:
-        response = requests.get(f"{BASE_URL}/api/complaints", headers=headers)
+        response = requests.get(url, timeout=10)
         print(f"Status: {response.status_code}")
-        print(f"Response: {response.json()}")
-    except Exception as e:
-        print(f"Error: {e}")
-    
-    # Тест создания обращения
-    print("\nPOST /api/complaints")
-    try:
-        complaint_data = {
-            "title": "Тестовое обращение",
-            "description": "Это тестовое обращение для проверки API",
-            "category": "general",
-            "priority": "medium"
-        }
+        print(f"Response: {response.text}")
         
-        response = requests.post(f"{BASE_URL}/api/complaints", 
-                               headers=headers, 
-                               json=complaint_data)
-        print(f"Status: {response.status_code}")
-        print(f"Response: {response.json()}")
+        if response.status_code == 200:
+            print("✅ Проверка сессии работает!")
+            return True
+        else:
+            print("❌ Ошибка проверки сессии")
+            return False
+            
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Ошибка подключения: {e}")
+        return False
 
-def main():
-    print("🚀 Начинаем тестирование API...")
+def test_health_check():
+    """Тест проверки здоровья сервера"""
+    print("\n🔍 Тестируем health check...")
     
-    # Тест 1: Проверка здоровья сервера
-    if not test_health():
-        print("❌ Сервер недоступен")
-        return
+    url = f"{BASE_URL}/api/health"
     
-    # Тест 2: Проверка базы данных
-    if not test_database():
-        print("❌ Проблемы с базой данных")
-        return
-    
-    # Тест 3: Авторизация
-    token = test_telegram_auth()
-    if not token:
-        print("❌ Проблемы с авторизацией")
-        return
-    
-    # Тест 4: Работа с обращениями
-    test_complaints_with_token(token)
-    
-    print("\n✅ Тестирование завершено")
+    try:
+        response = requests.get(url, timeout=10)
+        print(f"Status: {response.status_code}")
+        print(f"Response: {response.text}")
+        
+        if response.status_code == 200:
+            print("✅ Сервер работает!")
+            return True
+        else:
+            print("❌ Сервер не отвечает")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Ошибка подключения: {e}")
+        return False
 
 if __name__ == "__main__":
-    main()
+    print("🚀 Тестируем API endpoints...")
+    print("=" * 50)
+    
+    # Тестируем health check
+    health_ok = test_health_check()
+    
+    if health_ok:
+        # Тестируем создание сессии
+        create_ok = test_create_session()
+        
+        if create_ok:
+            # Тестируем проверку сессии
+            check_ok = test_check_session()
+        else:
+            check_ok = False
+    else:
+        create_ok = False
+        check_ok = False
+    
+    print("\n" + "=" * 50)
+    print("📊 РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ:")
+    print(f"Health Check: {'✅' if health_ok else '❌'}")
+    print(f"Create Session: {'✅' if create_ok else '❌'}")
+    print(f"Check Session: {'✅' if check_ok else '❌'}")
+    
+    if not health_ok:
+        print("\n🚨 ПРОБЛЕМА: Сервер не отвечает!")
+        print("Возможные причины:")
+        print("- Сервер не запущен")
+        print("- Проблемы с сетью")
+        print("- Неправильный URL")
+    
+    elif not create_ok:
+        print("\n🚨 ПРОБЛЕМА: Endpoint создания сессии не работает!")
+        print("Возможные причины:")
+        print("- Endpoint не добавлен в app.py")
+        print("- Сервер не перезапущен после изменений")
+        print("- Ошибка в коде endpoint")
+    
+    elif not check_ok:
+        print("\n🚨 ПРОБЛЕМА: Endpoint проверки сессии не работает!")
+        print("Возможные причины:")
+        print("- Endpoint не добавлен в app.py")
+        print("- Сервер не перезапущен после изменений")
+        print("- Ошибка в коде endpoint")
+    
+    else:
+        print("\n🎉 ВСЕ ТЕСТЫ ПРОШЛИ УСПЕШНО!")
+        print("API endpoints работают корректно")
