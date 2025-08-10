@@ -1649,71 +1649,97 @@ def broadcast_telegram_notification(title, message, notification_type='info', ta
 if __name__ == '__main__':
     # Создаем таблицы в базе данных
     with app.app_context():
-        # Удаляем старую базу данных и создаем новую
-        import os
-        db_path = 'instance/uk_mini_app.db'
-        if os.path.exists(db_path):
-            print("Removing old database...")
-            os.remove(db_path)
-            print("Old database removed")
-        
-        db.create_all()
-        print("Database tables created successfully")
-        
-        # Создаем тестового пользователя, если его нет
-        test_user = User.query.filter_by(telegram_id='123456789').first()
-        if not test_user:
-            test_user = User(
-                telegram_id='123456789',
-                first_name='Тестовый',
-                last_name='Пользователь',
-                username='test_user',
-                apartment='15',
-                building='3',
-                street='Ленина',
-                phone='+7 (999) 123-45-67',
-                email='test@example.com',
-                is_admin=False,
-                is_active=True
-            )
-            db.session.add(test_user)
+        try:
+            # Проверяем, нужно ли пересоздать базу данных
+            import os
+            db_path = 'instance/uk_mini_app.db'
+            
+            # Проверяем существование базы данных
+            if os.path.exists(db_path):
+                # Проверяем структуру таблицы complaint
+                try:
+                    result = db.session.execute("PRAGMA table_info(complaint)")
+                    columns = [row[1] for row in result.fetchall()]
+                    
+                    # Если отсутствует колонка assigned_to_name, пересоздаем БД
+                    if 'assigned_to_name' not in columns:
+                        print("Database structure outdated, recreating...")
+                        os.remove(db_path)
+                        print("Old database removed")
+                    else:
+                        print("Database structure is up to date")
+                except Exception as e:
+                    print(f"Error checking database structure: {e}")
+                    print("Recreating database...")
+                    if os.path.exists(db_path):
+                        os.remove(db_path)
+                    print("Old database removed")
+            else:
+                print("Database file not found, creating new one...")
+            
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Создаем тестового пользователя, если его нет
+            test_user = User.query.filter_by(telegram_id='123456789').first()
+            if not test_user:
+                test_user = User(
+                    telegram_id='123456789',
+                    first_name='Тестовый',
+                    last_name='Пользователь',
+                    username='test_user',
+                    apartment='15',
+                    building='3',
+                    street='Ленина',
+                    phone='+7 (999) 123-45-67',
+                    email='test@example.com',
+                    is_admin=False,
+                    is_active=True
+                )
+                db.session.add(test_user)
+                db.session.commit()
+                print("Test user created successfully")
+            
+            # Создаем тестовые типы счетчиков
+            meter_types = [
+                {'name': 'Электричество', 'code': 'electricity', 'unit': 'кВт·ч'},
+                {'name': 'Холодная вода', 'code': 'cold_water', 'unit': 'м³'},
+                {'name': 'Горячая вода', 'code': 'hot_water', 'unit': 'м³'},
+                {'name': 'Газ', 'code': 'gas', 'unit': 'м³'},
+                {'name': 'Отопление', 'code': 'heating', 'unit': 'Гкал'}
+            ]
+            
+            for mt_data in meter_types:
+                existing = MeterType.query.filter_by(code=mt_data['code']).first()
+                if not existing:
+                    meter_type = MeterType(**mt_data)
+                    db.session.add(meter_type)
+            
+            # Создаем тестовые категории обращений
+            complaint_categories = [
+                {'name': 'Сантехника', 'code': 'plumbing', 'description': 'Проблемы с водоснабжением, канализацией'},
+                {'name': 'Электрика', 'code': 'electricity', 'description': 'Проблемы с электричеством'},
+                {'name': 'Отопление', 'code': 'heating', 'description': 'Проблемы с отоплением'},
+                {'name': 'Уборка', 'code': 'cleaning', 'description': 'Проблемы с уборкой подъездов'},
+                {'name': 'Шум', 'code': 'noise', 'description': 'Жалобы на шум'},
+                {'name': 'Лифт', 'code': 'elevator', 'description': 'Проблемы с лифтом'},
+                {'name': 'Ремонт', 'code': 'repair', 'description': 'Общие вопросы ремонта'},
+                {'name': 'Общие вопросы', 'code': 'general', 'description': 'Другие вопросы'}
+            ]
+            
+            for cat_data in complaint_categories:
+                existing = ComplaintCategory.query.filter_by(code=cat_data['code']).first()
+                if not existing:
+                    category = ComplaintCategory(**cat_data)
+                    db.session.add(category)
+            
             db.session.commit()
-            print("Test user created successfully")
-        
-        # Создаем тестовые типы счетчиков
-        meter_types = [
-            {'name': 'Электричество', 'code': 'electricity', 'unit': 'кВт·ч'},
-            {'name': 'Холодная вода', 'code': 'cold_water', 'unit': 'м³'},
-            {'name': 'Горячая вода', 'code': 'hot_water', 'unit': 'м³'},
-            {'name': 'Газ', 'code': 'gas', 'unit': 'м³'},
-            {'name': 'Отопление', 'code': 'heating', 'unit': 'Гкал'}
-        ]
-        
-        for mt_data in meter_types:
-            existing = MeterType.query.filter_by(code=mt_data['code']).first()
-            if not existing:
-                meter_type = MeterType(**mt_data)
-                db.session.add(meter_type)
-        
-        # Создаем тестовые категории обращений
-        complaint_categories = [
-            {'name': 'Сантехника', 'code': 'plumbing', 'description': 'Проблемы с водоснабжением, канализацией'},
-            {'name': 'Электрика', 'code': 'electricity', 'description': 'Проблемы с электричеством'},
-            {'name': 'Отопление', 'code': 'heating', 'description': 'Проблемы с отоплением'},
-            {'name': 'Уборка', 'code': 'cleaning', 'description': 'Проблемы с уборкой подъездов'},
-            {'name': 'Шум', 'code': 'noise', 'description': 'Жалобы на шум'},
-            {'name': 'Лифт', 'code': 'elevator', 'description': 'Проблемы с лифтом'},
-            {'name': 'Ремонт', 'code': 'repair', 'description': 'Общие вопросы ремонта'},
-            {'name': 'Общие вопросы', 'code': 'general', 'description': 'Другие вопросы'}
-        ]
-        
-        for cat_data in complaint_categories:
-            existing = ComplaintCategory.query.filter_by(code=cat_data['code']).first()
-            if not existing:
-                category = ComplaintCategory(**cat_data)
-                db.session.add(category)
-        
-        db.session.commit()
-        print("Test data initialized successfully")
+            print("Test data initialized successfully")
+            
+        except Exception as e:
+            print(f"Error during database initialization: {e}")
+            import traceback
+            traceback.print_exc()
+            # Продолжаем запуск приложения даже при ошибке БД
     
     app.run(debug=True, host='0.0.0.0', port=8000) 
