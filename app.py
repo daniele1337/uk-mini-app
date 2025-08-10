@@ -20,7 +20,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/uk_mini_app.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////var/www/uk-mini-app/instance/uk_mini_app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Telegram Bot конфигурация
@@ -1652,7 +1652,7 @@ if __name__ == '__main__':
         try:
             # Проверяем, нужно ли пересоздать базу данных
             import os
-            db_path = 'instance/uk_mini_app.db'  # Используем правильный путь
+            db_path = '/var/www/uk-mini-app/instance/uk_mini_app.db'  # Используем абсолютный путь
             
             # Создаем директорию instance если её нет
             instance_dir = '/var/www/uk-mini-app/instance'
