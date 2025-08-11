@@ -844,13 +844,15 @@ def admin_stats():
     total_users = User.query.count()
     total_complaints = Complaint.query.count()
     total_readings = MeterReading.query.count()
-    active_complaints = Complaint.query.filter_by(status='new').count()
+    pending_complaints = Complaint.query.filter_by(status='pending').count()
+    resolved_complaints = Complaint.query.filter_by(status='resolved').count()
     
     return jsonify({
-        'totalUsers': total_users,
-        'totalComplaints': total_complaints,
-        'totalReadings': total_readings,
-        'activeComplaints': active_complaints
+        'stats': {
+            'total': total_complaints,
+            'pending': pending_complaints,
+            'resolved': resolved_complaints
+        }
     })
 
 @app.route('/api/admin/complaints', methods=['GET'])
@@ -859,6 +861,15 @@ def admin_complaints():
     
     complaints_data = []
     for complaint, user in complaints:
+        # Парсим ответы из поля response
+        replies = []
+        if complaint.response:
+            # Простой парсинг ответов (можно улучшить)
+            replies.append({
+                'reply': complaint.response,
+                'created_at': complaint.updated_at.isoformat()
+            })
+        
         complaints_data.append({
             'id': complaint.id,
             'title': complaint.title,
@@ -866,6 +877,7 @@ def admin_complaints():
             'category': complaint.category,
             'status': complaint.status,
             'response': complaint.response,
+            'replies': replies,
             'created_at': complaint.created_at.isoformat(),
             'user_name': f"{user.first_name} {user.last_name}",
             'address': f"{user.street} {user.building} {user.apartment}"
@@ -923,6 +935,44 @@ def update_complaint_status(complaint_id):
         'id': complaint.id,
         'status': complaint.status,
         'updated_at': complaint.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+@app.route('/api/admin/complaints/<int:complaint_id>/reply', methods=['POST'])
+def reply_to_complaint(complaint_id):
+    """Ответить на обращение"""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    user = User.query.get(user_id)
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    complaint = Complaint.query.get(complaint_id)
+    if not complaint:
+        return jsonify({'error': 'Complaint not found'}), 404
+    
+    data = request.get_json()
+    reply = data.get('reply')
+    
+    if not reply:
+        return jsonify({'error': 'Reply text is required'}), 400
+    
+    # Добавляем ответ к обращению
+    if complaint.response:
+        complaint.response += f"\n\n--- Ответ администратора {user.first_name} {user.last_name} ---\n{reply}"
+    else:
+        complaint.response = f"Ответ администратора {user.first_name} {user.last_name}:\n{reply}"
+    
+    complaint.updated_at = datetime.datetime.utcnow()
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Reply added successfully'
     })
 
 @app.route('/api/admin/meter-readings', methods=['GET'])
@@ -1709,135 +1759,7 @@ def create_admin():
         print(f"Error creating admin: {e}")
         return jsonify({'error': 'Failed to create admin'}), 500
 
-# Хранилище активных сессий QR-кода
-qr_sessions = {}
 
-@app.route('/api/auth/check-session/<session_id>', methods=['GET'])
-def check_qr_session(session_id):
-    """Проверка сессии QR-кода"""
-    try:
-        if session_id in qr_sessions:
-            session_data = qr_sessions[session_id]
-            
-            # Проверяем, не истекла ли сессия (5 минут)
-            if datetime.datetime.now() - session_data['created_at'] > datetime.timedelta(minutes=5):
-                del qr_sessions[session_id]
-                return jsonify({'success': False, 'error': 'Session expired'}), 400
-            
-            # Если пользователь авторизовался
-            if session_data.get('user'):
-                # Удаляем сессию после успешной авторизации
-                user_data = session_data['user']
-                del qr_sessions[session_id]
-                
-                return jsonify({
-                    'success': True,
-                    'user': user_data
-                })
-            
-            return jsonify({'success': False, 'message': 'Waiting for authorization'})
-        
-        return jsonify({'success': False, 'error': 'Session not found'}), 404
-        
-    except Exception as e:
-        print(f"Error checking QR session: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@app.route('/api/auth/qr-login', methods=['POST'])
-def qr_login():
-    """Авторизация через QR-код"""
-    try:
-        data = request.get_json()
-        session_id = data.get('session_id')
-        telegram_id = data.get('telegram_id')
-        first_name = data.get('first_name', '')
-        last_name = data.get('last_name', '')
-        username = data.get('username', '')
-        
-        if not session_id or not telegram_id:
-            return jsonify({'error': 'Missing session_id or telegram_id'}), 400
-        
-        # Проверяем, существует ли сессия
-        if session_id not in qr_sessions:
-            return jsonify({'error': 'Invalid session'}), 400
-        
-        # Проверяем, не истекла ли сессия
-        session_data = qr_sessions[session_id]
-        if datetime.datetime.now() - session_data['created_at'] > datetime.timedelta(minutes=5):
-            del qr_sessions[session_id]
-            return jsonify({'error': 'Session expired'}), 400
-        
-        # Проверяем, существует ли пользователь
-        user = User.query.filter_by(telegram_id=str(telegram_id)).first()
-        
-        if not user:
-            # Создаем нового пользователя
-            user = User(
-                telegram_id=str(telegram_id),
-                first_name=first_name,
-                last_name=last_name,
-                username=username,
-                is_active=True
-            )
-            db.session.add(user)
-            db.session.commit()
-            print(f"New user created via QR: {first_name} {last_name} (ID: {telegram_id})")
-        else:
-            print(f"User found via QR: {user.first_name} {user.last_name}")
-        
-        # Сохраняем данные пользователя в сессии
-        user_data = {
-            'id': user.id,
-            'telegram_id': user.telegram_id,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'username': user.username,
-            'apartment': user.apartment,
-            'building': user.building,
-            'street': user.street,
-            'phone': user.phone,
-            'email': user.email,
-            'is_admin': user.is_admin,
-            'is_active': user.is_active
-        }
-        
-        qr_sessions[session_id]['user'] = user_data
-        
-        return jsonify({
-            'success': True,
-            'message': 'QR authorization successful'
-        })
-        
-    except Exception as e:
-        print(f"Error in QR login: {e}")
-        return jsonify({'error': 'QR authorization failed'}), 500
-
-@app.route('/api/auth/create-session', methods=['POST'])
-def create_qr_session():
-    """Создание сессии для QR-кода"""
-    try:
-        data = request.get_json()
-        session_id = data.get('session_id')
-        
-        if not session_id:
-            return jsonify({'error': 'Missing session_id'}), 400
-        
-        # Создаем новую сессию
-        qr_sessions[session_id] = {
-            'created_at': datetime.datetime.now(),
-            'user': None
-        }
-        
-        print(f"QR session created: {session_id}")
-        
-        return jsonify({
-            'success': True,
-            'session_id': session_id
-        })
-        
-    except Exception as e:
-        print(f"Error creating QR session: {e}")
-        return jsonify({'error': 'Failed to create session'}), 500
 
 if __name__ == '__main__':
     # Создаем таблицы в базе данных
@@ -1978,62 +1900,34 @@ def telegram_webhook():
             
             if text.startswith('/start'):
                 # Обработка команды /start
-                if text.startswith('/start qr_'):
-                    # QR-авторизация
-                    session_id = text.replace('/start qr_', '')
-                    print(f"🔐 QR-авторизация для сессии: {session_id}")
-                    
-                    # Отправляем данные на сервер
-                    success = send_qr_auth_data(session_id, user)
-                    
-                    if success:
-                        response_text = (
-                            "✅ <b>Авторизация успешна!</b>\n\n"
-                            "Вы успешно авторизовались в системе управления домом.\n"
-                            "Теперь можете закрыть это окно и вернуться в браузер.\n\n"
-                            "🚀 <i>Добро пожаловать в систему!</i>"
-                        )
-                    else:
-                        response_text = (
-                            "❌ <b>Ошибка авторизации</b>\n\n"
-                            "Не удалось авторизоваться в системе.\n"
-                            "Попробуйте еще раз или обратитесь к администратору.\n\n"
-                            "🔄 <i>Попробуйте отсканировать QR-код снова</i>"
-                        )
-                    
-                    send_telegram_message(chat_id, response_text)
-                    
-                else:
-                    # Обычная команда start
-                    response_text = (
-                        "🏠 <b>Добро пожаловать в систему управления домом!</b>\n\n"
-                        "Этот бот поможет вам:\n"
-                        "• Получать уведомления о важных событиях\n"
-                        "• Быстро авторизоваться в веб-приложении\n"
-                        "• Оставаться в курсе новостей дома\n\n"
-                        "📱 <i>Для авторизации в веб-приложении отсканируйте QR-код</i>\n\n"
-                        "🔗 <a href='https://24autoflow.ru'>Открыть веб-приложение</a>"
-                    )
-                    
-                    # Кнопка для открытия веб-приложения
-                    reply_markup = {
-                        'inline_keyboard': [[
-                            {
-                                'text': '🌐 Открыть веб-приложение',
-                                'url': 'https://24autoflow.ru'
-                            }
-                        ]]
-                    }
-                    
-                    send_telegram_message_with_markup(chat_id, response_text, reply_markup)
+                response_text = (
+                    "🏠 <b>Добро пожаловать в систему управления домом!</b>\n\n"
+                    "Этот бот поможет вам:\n"
+                    "• Получать уведомления о важных событиях\n"
+                    "• Быстро авторизоваться в веб-приложении\n"
+                    "• Оставаться в курсе новостей дома\n\n"
+                    "🔗 <a href='https://24autoflow.ru'>Открыть веб-приложение</a>"
+                )
+                
+                # Кнопка для открытия веб-приложения
+                reply_markup = {
+                    'inline_keyboard': [[
+                        {
+                            'text': '🌐 Открыть веб-приложение',
+                            'url': 'https://24autoflow.ru'
+                        }
+                    ]]
+                }
+                
+                send_telegram_message_with_markup(chat_id, response_text, reply_markup)
                     
             elif text.startswith('/help'):
                 # Обработка команды /help
                 response_text = (
                     "❓ <b>Справка по использованию бота</b>\n\n"
-                    "🔐 <b>QR-авторизация:</b>\n"
+                    "🔐 <b>Авторизация:</b>\n"
                     "1. Откройте веб-приложение в браузере\n"
-                    "2. Отсканируйте QR-код в Telegram\n"
+                    "2. Войдите через Telegram Mini App\n"
                     "3. Автоматически войдите в систему\n\n"
                     "📱 <b>Уведомления:</b>\n"
                     "Бот будет отправлять вам важные уведомления:\n"
@@ -2051,7 +1945,7 @@ def telegram_webhook():
                     "Доступные команды:\n"
                     "/start - Запустить бота\n"
                     "/help - Получить помощь\n\n"
-                    "📱 <i>Для авторизации в веб-приложении отсканируйте QR-код</i>"
+                    "📱 <i>Для авторизации в веб-приложении используйте Telegram Mini App</i>"
                 )
                 send_telegram_message(chat_id, response_text)
         
@@ -2096,71 +1990,6 @@ def send_telegram_message_with_markup(chat_id, message, reply_markup, parse_mode
         print(f"❌ Ошибка отправки сообщения: {e}")
         return False
 
-def send_qr_auth_data(session_id, user):
-    """Обработка данных QR-авторизации"""
-    try:
-        telegram_id = user.get('id')
-        first_name = user.get('first_name', '')
-        last_name = user.get('last_name', '')
-        username = user.get('username', '')
-        
-        if not session_id or not telegram_id:
-            print(f"❌ Отсутствуют обязательные данные: session_id={session_id}, telegram_id={telegram_id}")
-            return False
-        
-        # Проверяем, существует ли сессия
-        if session_id not in qr_sessions:
-            print(f"❌ Недействительная сессия: {session_id}")
-            return False
-        
-        # Проверяем, не истекла ли сессия
-        session_data = qr_sessions[session_id]
-        if datetime.datetime.now() - session_data['created_at'] > datetime.timedelta(minutes=5):
-            del qr_sessions[session_id]
-            print(f"❌ Сессия истекла: {session_id}")
-            return False
-        
-        # Проверяем, существует ли пользователь
-        user_obj = User.query.filter_by(telegram_id=str(telegram_id)).first()
-        
-        if not user_obj:
-            # Создаем нового пользователя
-            user_obj = User(
-                telegram_id=str(telegram_id),
-                first_name=first_name,
-                last_name=last_name,
-                username=username,
-                is_active=True
-            )
-            db.session.add(user_obj)
-            db.session.commit()
-            print(f"✅ Новый пользователь создан через QR: {first_name} {last_name} (ID: {telegram_id})")
-        else:
-            print(f"✅ Пользователь найден через QR: {user_obj.first_name} {user_obj.last_name}")
-        
-        # Сохраняем данные пользователя в сессии
-        user_data = {
-            'id': user_obj.id,
-            'telegram_id': user_obj.telegram_id,
-            'first_name': user_obj.first_name,
-            'last_name': user_obj.last_name,
-            'username': user_obj.username,
-            'apartment': user_obj.apartment,
-            'building': user_obj.building,
-            'street': user_obj.street,
-            'phone': user_obj.phone,
-            'email': user_obj.email,
-            'is_admin': user_obj.is_admin,
-            'is_active': user_obj.is_active
-        }
-        
-        qr_sessions[session_id]['user'] = user_data
-        
-        print(f"✅ QR-авторизация успешна для пользователя {first_name}")
-        return True
-            
-    except Exception as e:
-        print(f"❌ Ошибка обработки QR-авторизации: {e}")
-        return False
+
     
     app.run(debug=True, host='0.0.0.0', port=8000) 

@@ -1,688 +1,390 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
-import api from '../services/api'
-import NotificationSender from '../components/NotificationSender'
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { 
-  Users, 
-  FileText, 
-  Zap, 
-  Droplets, 
-  Flame, 
-  Thermometer,
-  CheckCircle,
+  MessageSquare, 
+  Download, 
+  Filter, 
+  Search, 
+  Reply, 
+  CheckCircle, 
+  Clock, 
   AlertCircle,
-  Clock,
-  Eye,
-  Edit,
-  Filter,
-  Download,
-  BarChart3,
-  MessageSquare,
-  Settings,
-  Search,
-  Send,
-  Bell
-} from 'lucide-react'
+  FileText,
+  Users,
+  Building
+} from 'lucide-react';
+import api from '../services/api';
 
 const AdminPanel = () => {
-  const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({})
-  const [complaints, setComplaints] = useState([])
-  const [meterReadings, setMeterReadings] = useState([])
-  const [users, setUsers] = useState([])
-  const [selectedComplaint, setSelectedComplaint] = useState(null)
-  const [showComplaintModal, setShowComplaintModal] = useState(false)
-  const [filters, setFilters] = useState({
-    status: '',
-    category: '',
-    priority: '',
-    date_from: '',
-    date_to: '',
-    search: ''
-  })
-  const [showFilters, setShowFilters] = useState(false)
+  const { user } = useAuth();
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all'); // all, pending, resolved
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    resolved: 0
+  });
 
   useEffect(() => {
-    loadDashboardData()
-  }, [])
+    if (user?.is_admin) {
+      loadComplaints();
+      loadStats();
+    }
+  }, [user]);
 
-  const loadDashboardData = async () => {
-    setLoading(true)
+  const loadComplaints = async () => {
     try {
-      const [statsRes, complaintsRes, readingsRes, usersRes] = await Promise.all([
-        api.get('/admin/stats'),
-        api.get('/admin/complaints'),
-        api.get('/admin/meter-readings'),
-        api.get('/admin/users')
-      ])
-      
-      setStats(statsRes.data)
-      setComplaints(complaintsRes.data.complaints || [])
-      setMeterReadings(readingsRes.data || [])
-      setUsers(usersRes.data.users || [])
+      setLoading(true);
+      const response = await api.get('/admin/complaints');
+      setComplaints(response.data.complaints || []);
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
+      console.error('Error loading complaints:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const handleComplaintUpdate = async (complaintId, updates) => {
+  const loadStats = async () => {
     try {
-      await api.put(`/admin/complaints/${complaintId}`, updates)
-      await loadDashboardData()
-      setShowComplaintModal(false)
-      setSelectedComplaint(null)
+      const response = await api.get('/admin/stats');
+      setStats(response.data.stats || { total: 0, pending: 0, resolved: 0 });
     } catch (error) {
-      console.error('Error updating complaint:', error)
-      alert('Ошибка при обновлении обращения')
+      console.error('Error loading stats:', error);
     }
-  }
+  };
 
-  const handleVerifyReading = async (readingId) => {
+  const handleReply = async (complaintId) => {
+    if (!replyText.trim()) return;
+
     try {
-      await api.post(`/admin/meter-readings/${readingId}/verify`)
-      await loadDashboardData()
+      setReplying(true);
+      await api.post(`/admin/complaints/${complaintId}/reply`, {
+        reply: replyText
+      });
+      
+      setReplyText('');
+      setSelectedComplaint(null);
+      loadComplaints();
+      loadStats();
     } catch (error) {
-      console.error('Error verifying reading:', error)
-      alert('Ошибка при подтверждении показаний')
+      console.error('Error sending reply:', error);
+    } finally {
+      setReplying(false);
     }
-  }
+  };
 
-  const handleExport = async (type) => {
+  const handleStatusChange = async (complaintId, status) => {
+    try {
+      await api.put(`/admin/complaints/${complaintId}/status`, {
+        status: status
+      });
+      loadComplaints();
+      loadStats();
+    } catch (error) {
+      console.error('Error changing status:', error);
+    }
+  };
+
+  const exportData = async (type) => {
     try {
       const response = await api.get(`/admin/export/${type}`, {
         responseType: 'blob'
-      })
+      });
       
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `uk_mini_app_${type}_${new Date().toISOString().slice(0, 10)}.xlsx`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${type}_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (error) {
-      console.error('Error exporting data:', error)
-      alert('Ошибка при экспорте данных')
+      console.error('Error exporting data:', error);
     }
-  }
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'new': return 'bg-blue-100 text-blue-800'
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800'
-      case 'resolved': return 'bg-green-100 text-green-800'
-      case 'rejected': return 'bg-red-100 text-red-800'
-      case 'closed': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'low': return 'bg-green-100 text-green-800'
-      case 'medium': return 'bg-yellow-100 text-yellow-800'
-      case 'high': return 'bg-orange-100 text-orange-800'
-      case 'urgent': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getMeterIcon = (type) => {
-    switch (type) {
-      case 'electricity': return <Zap className="w-5 h-5" />
-      case 'cold_water': return <Droplets className="w-5 h-5" />
-      case 'hot_water': return <Droplets className="w-5 h-5 text-red-500" />
-      case 'gas': return <Flame className="w-5 h-5" />
-      case 'heating': return <Thermometer className="w-5 h-5" />
-      default: return <FileText className="w-5 h-5" />
-    }
-  }
+  };
 
   const filteredComplaints = complaints.filter(complaint => {
-    if (filters.status && complaint.status !== filters.status) return false
-    if (filters.category && complaint.category !== filters.category) return false
-    if (filters.priority && complaint.priority !== filters.priority) return false
-    if (filters.search && !complaint.title.toLowerCase().includes(filters.search.toLowerCase())) return false
-    return true
-  })
+    const matchesFilter = filter === 'all' || complaint.status === filter;
+    const matchesSearch = complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         complaint.user_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
-  if (loading) {
+  if (!user?.is_admin) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Доступ запрещен</h2>
+          <p className="text-gray-600">У вас нет прав администратора</p>
+        </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Заголовок */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Панель администратора</h1>
-          <p className="text-gray-600">Управление системой и пользователями</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Заголовок */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Панель администратора</h1>
+              <p className="text-gray-600">Управление обращениями и данными</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">
+                Администратор: {user.first_name} {user.last_name}
+              </span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Навигация */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'dashboard'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              Дашборд
-            </button>
-            <button
-              onClick={() => setActiveTab('complaints')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'complaints'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Обращения
-            </button>
-            <button
-              onClick={() => setActiveTab('readings')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'readings'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              Показания счетчиков
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'users'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              Пользователи
-            </button>
-            <button
-              onClick={() => setActiveTab('notifications')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'notifications'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Bell className="w-4 h-4" />
-              Уведомления
-            </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Статистика */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <MessageSquare className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Всего обращений</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Ожидают ответа</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Решено</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.resolved}</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Контент */}
-        {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Всего пользователей</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total_users || 0}</p>
-                </div>
-                <Users className="w-8 h-8 text-primary-600" />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Активных обращений</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.active_complaints || 0}</p>
-                </div>
-                <MessageSquare className="w-8 h-8 text-yellow-600" />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Показаний за месяц</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.monthly_readings || 0}</p>
-                </div>
-                <FileText className="w-8 h-8 text-green-600" />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Среднее время решения</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.avg_resolution_time || 0}ч</p>
-                </div>
-                <Clock className="w-8 h-8 text-blue-600" />
-              </div>
-            </div>
+        {/* Экспорт данных */}
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Экспорт данных</h3>
           </div>
-        )}
-
-        {activeTab === 'complaints' && (
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">Обращения</h2>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    <Filter className="w-4 h-4" />
-                    Фильтры
-                  </button>
-                  <button 
-                    onClick={() => handleExport('complaints')}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                  >
-                    <Download className="w-4 h-4" />
-                    Экспорт обращений
-                  </button>
-                  <button 
-                    onClick={() => handleExport('all')}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    <Download className="w-4 h-4" />
-                    Экспорт всех данных
-                  </button>
-                </div>
-              </div>
-
-              {/* Фильтры */}
-              {showFilters && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Поиск</label>
-                      <input
-                        type="text"
-                        value={filters.search}
-                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                        placeholder="Поиск по теме..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
-                      <select
-                        value={filters.status}
-                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      >
-                        <option value="">Все статусы</option>
-                        <option value="new">Новые</option>
-                        <option value="in_progress">В работе</option>
-                        <option value="resolved">Решено</option>
-                        <option value="rejected">Отклонено</option>
-                        <option value="closed">Закрыто</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Приоритет</label>
-                      <select
-                        value={filters.priority}
-                        onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      >
-                        <option value="">Все приоритеты</option>
-                        <option value="low">Низкий</option>
-                        <option value="medium">Средний</option>
-                        <option value="high">Высокий</option>
-                        <option value="urgent">Срочный</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
-                      <select
-                        value={filters.category}
-                        onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      >
-                        <option value="">Все категории</option>
-                        <option value="plumbing">Сантехника</option>
-                        <option value="electricity">Электрика</option>
-                        <option value="cleaning">Уборка</option>
-                        <option value="noise">Шум</option>
-                        <option value="other">Другое</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Пользователь</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тема</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Категория</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Приоритет</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredComplaints.map((complaint) => (
-                    <tr key={complaint.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">#{complaint.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {complaint.user_name}
-                        <br />
-                        <span className="text-xs text-gray-500">Кв. {complaint.user_apartment}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                        {complaint.title}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {complaint.category}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(complaint.priority)}`}>
-                          {complaint.priority}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(complaint.status)}`}>
-                          {complaint.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(complaint.created_at).toLocaleDateString('ru-RU')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => {
-                            setSelectedComplaint(complaint)
-                            setShowComplaintModal(true)
-                          }}
-                          className="text-primary-600 hover:text-primary-900 mr-3"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="text-gray-600 hover:text-gray-900">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'readings' && (
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">Показания счетчиков</h2>
-                <div className="flex gap-2">
-                  <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <Filter className="w-4 h-4" />
-                    Фильтры
-                  </button>
-                  <button 
-                    onClick={() => handleExport('meter_readings')}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                  >
-                    <Download className="w-4 h-4" />
-                    Экспорт показаний
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Пользователь</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тип счетчика</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Показания</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Расход</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {meterReadings.map((reading) => (
-                    <tr key={reading.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {reading.user_name}
-                        <br />
-                        <span className="text-xs text-gray-500">Кв. {reading.user_apartment}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {getMeterIcon(reading.meter_type)}
-                          <span className="text-sm text-gray-900">{reading.meter_type}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {reading.value}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {reading.consumption ? `+${reading.consumption}` : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {reading.is_verified ? (
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                        ) : (
-                          <AlertCircle className="w-5 h-5 text-yellow-500" />
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(reading.created_at).toLocaleDateString('ru-RU')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {!reading.is_verified && (
-                          <button
-                            onClick={() => handleVerifyReading(reading.id)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Подтвердить
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'users' && (
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">Пользователи</h2>
-                <div className="flex gap-2">
-                  <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <Filter className="w-4 h-4" />
-                    Фильтры
-                  </button>
-                  <button 
-                    onClick={() => handleExport('users')}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                  >
-                    <Download className="w-4 h-4" />
-                    Экспорт пользователей
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Имя</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Адрес</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telegram ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата регистрации</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">#{user.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.first_name} {user.last_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.street}, д. {user.building}, кв. {user.apartment}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.telegram_id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {user.is_active ? 'Активен' : 'Неактивен'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString('ru-RU')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'notifications' && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Управление уведомлениями</h2>
-              <p className="text-gray-600 mb-4">
-                Отправляйте уведомления пользователям по домам или выборочно
-              </p>
-              <NotificationSender />
-            </div>
-          </div>
-        )}
-
-        {/* Модальное окно для просмотра обращения */}
-        {showComplaintModal && selectedComplaint && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Обращение #{selectedComplaint.id}
-                </h3>
-                <button
-                  onClick={() => setShowComplaintModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
+                onClick={() => exportData('complaints')}
+                className="flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <FileText className="w-5 h-5 text-gray-600" />
+                <span className="text-sm font-medium">Обращения</span>
+              </button>
               
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Пользователь</label>
-                  <p className="text-sm text-gray-900">{selectedComplaint.user_name}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Тема</label>
-                  <p className="text-sm text-gray-900">{selectedComplaint.title}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
-                  <p className="text-sm text-gray-900">{selectedComplaint.description}</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
-                    <p className="text-sm text-gray-900">{selectedComplaint.category}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Приоритет</label>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(selectedComplaint.priority)}`}>
-                      {selectedComplaint.priority}
-                    </span>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
-                  <select
-                    value={selectedComplaint.status}
-                    onChange={(e) => setSelectedComplaint(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="new">Новое</option>
-                    <option value="in_progress">В работе</option>
-                    <option value="resolved">Решено</option>
-                    <option value="rejected">Отклонено</option>
-                    <option value="closed">Закрыто</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ответ</label>
-                  <textarea
-                    value={selectedComplaint.response || ''}
-                    onChange={(e) => setSelectedComplaint(prev => ({ ...prev, response: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    rows="3"
-                    placeholder="Введите ответ..."
+              <button
+                onClick={() => exportData('users')}
+                className="flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Users className="w-5 h-5 text-gray-600" />
+                <span className="text-sm font-medium">Пользователи</span>
+              </button>
+              
+              <button
+                onClick={() => exportData('meters')}
+                className="flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Building className="w-5 h-5 text-gray-600" />
+                <span className="text-sm font-medium">Показания счетчиков</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Фильтры и поиск */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="p-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Поиск по обращениям..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={() => handleComplaintUpdate(selectedComplaint.id, {
-                      status: selectedComplaint.status,
-                      response: selectedComplaint.response
-                    })}
-                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                  >
-                    Сохранить изменения
-                  </button>
-                  <button
-                    onClick={() => setShowComplaintModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Отмена
-                  </button>
-                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFilter('all')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filter === 'all' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Все
+                </button>
+                <button
+                  onClick={() => setFilter('pending')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filter === 'pending' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Ожидают
+                </button>
+                <button
+                  onClick={() => setFilter('resolved')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filter === 'resolved' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Решено
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Список обращений */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Обращения</h3>
+          </div>
+          
+          {loading ? (
+            <div className="p-6 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Загрузка обращений...</p>
+            </div>
+          ) : filteredComplaints.length === 0 ? (
+            <div className="p-6 text-center">
+              <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">Обращения не найдены</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {filteredComplaints.map((complaint) => (
+                <div key={complaint.id} className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-lg font-medium text-gray-900">{complaint.title}</h4>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          complaint.status === 'pending' 
+                            ? 'bg-yellow-100 text-yellow-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {complaint.status === 'pending' ? 'Ожидает' : 'Решено'}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 mb-2">{complaint.description}</p>
+                      <div className="text-sm text-gray-500">
+                        <span>От: {complaint.user_name}</span>
+                        <span className="mx-2">•</span>
+                        <span>{new Date(complaint.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      {complaint.status === 'pending' && (
+                        <button
+                          onClick={() => handleStatusChange(complaint.id, 'resolved')}
+                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                        >
+                          Решить
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setSelectedComplaint(selectedComplaint === complaint.id ? null : complaint.id)}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                      >
+                        Ответить
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Форма ответа */}
+                  {selectedComplaint === complaint.id && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Введите ответ..."
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        rows="3"
+                      />
+                      <div className="flex justify-end gap-2 mt-3">
+                        <button
+                          onClick={() => {
+                            setSelectedComplaint(null);
+                            setReplyText('');
+                          }}
+                          className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          onClick={() => handleReply(complaint.id)}
+                          disabled={replying || !replyText.trim()}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {replying ? 'Отправка...' : 'Отправить'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Существующие ответы */}
+                  {complaint.replies && complaint.replies.length > 0 && (
+                    <div className="mt-4">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Ответы:</h5>
+                      {complaint.replies.map((reply, index) => (
+                        <div key={index} className="bg-blue-50 p-3 rounded-lg mb-2">
+                          <p className="text-sm text-gray-800">{reply.reply}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(reply.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default AdminPanel 
+export default AdminPanel; 
