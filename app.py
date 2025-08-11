@@ -110,47 +110,59 @@ class ComplaintCategory(db.Model):
 
 # Создание таблиц
 with app.app_context():
-    db.create_all()
-    
-    # Инициализация базовых данных
-    if not MeterType.query.first():
-        meter_types = [
-            MeterType(name='Электричество', code='electricity', unit='кВт·ч', description='Показания электросчетчика'),
-            MeterType(name='Холодная вода', code='cold_water', unit='м³', description='Показания счетчика холодной воды'),
-            MeterType(name='Горячая вода', code='hot_water', unit='м³', description='Показания счетчика горячей воды'),
-            MeterType(name='Газ', code='gas', unit='м³', description='Показания газового счетчика'),
-            MeterType(name='Отопление', code='heating', unit='Гкал', description='Показания счетчика отопления')
-        ]
-        db.session.add_all(meter_types)
+    try:
+        # Создаем таблицы только один раз
+        db.create_all()
+        print("Database tables created successfully")
         
-    if not ComplaintCategory.query.first():
-        categories = [
-            ComplaintCategory(name='Сантехника', code='plumbing', description='Проблемы с водоснабжением, канализацией', sla_hours=4),
-            ComplaintCategory(name='Электричество', code='electricity', description='Проблемы с электроснабжением', sla_hours=2),
-            ComplaintCategory(name='Уборка', code='cleaning', description='Проблемы с уборкой помещений', sla_hours=24),
-            ComplaintCategory(name='Шум', code='noise', description='Жалобы на шум', sla_hours=48),
-            ComplaintCategory(name='Другое', code='other', description='Прочие обращения', sla_hours=72)
-        ]
-        db.session.add_all(categories)
-    
-    # Создание тестового админа
-    if not User.query.filter_by(telegram_id='123456789').first():
-        admin_user = User(
-            telegram_id='123456789',
-            first_name='Администратор',
-            last_name='УК',
-            username='admin_uk',
-            apartment='1',
-            building='1',
-            street='Тестовая улица',
-            phone='+7 (999) 123-45-67',
-            email='admin@uk.ru',
-            is_admin=True,
-            is_active=True
-        )
-        db.session.add(admin_user)
+        # Инициализация базовых данных только если их нет
+        if not MeterType.query.first():
+            meter_types = [
+                MeterType(name='Электричество', code='electricity', unit='кВт·ч', description='Показания электросчетчика'),
+                MeterType(name='Холодная вода', code='cold_water', unit='м³', description='Показания счетчика холодной воды'),
+                MeterType(name='Горячая вода', code='hot_water', unit='м³', description='Показания счетчика горячей воды'),
+                MeterType(name='Газ', code='gas', unit='м³', description='Показания газового счетчика'),
+                MeterType(name='Отопление', code='heating', unit='Гкал', description='Показания счетчика отопления')
+            ]
+            db.session.add_all(meter_types)
+            print("Meter types initialized")
         
-    db.session.commit()
+        if not ComplaintCategory.query.first():
+            categories = [
+                ComplaintCategory(name='Сантехника', code='plumbing', description='Проблемы с водоснабжением, канализацией', sla_hours=4),
+                ComplaintCategory(name='Электричество', code='electricity', description='Проблемы с электроснабжением', sla_hours=2),
+                ComplaintCategory(name='Уборка', code='cleaning', description='Проблемы с уборкой помещений', sla_hours=24),
+                ComplaintCategory(name='Шум', code='noise', description='Жалобы на шум', sla_hours=48),
+                ComplaintCategory(name='Другое', code='other', description='Прочие обращения', sla_hours=72)
+            ]
+            db.session.add_all(categories)
+            print("Complaint categories initialized")
+        
+        # Создание тестового админа
+        if not User.query.filter_by(telegram_id='123456789').first():
+            admin_user = User(
+                telegram_id='123456789',
+                first_name='Администратор',
+                last_name='УК',
+                username='admin_uk',
+                apartment='1',
+                building='1',
+                street='Тестовая улица',
+                phone='+7 (999) 123-45-67',
+                email='admin@uk.ru',
+                is_admin=True,
+                is_active=True
+            )
+            db.session.add(admin_user)
+            print("Test admin user created")
+        
+        db.session.commit()
+        print("Database initialization completed successfully")
+        
+    except Exception as e:
+        print(f"Error during database initialization: {e}")
+        db.session.rollback()
+        # Продолжаем работу даже если инициализация не удалась
 
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
@@ -1723,164 +1735,6 @@ def broadcast_telegram_notification(title, message, notification_type='info', ta
         'failed_count': total_count - success_count
     }
 
-@app.route('/api/admin/create', methods=['POST'])
-def create_admin():
-    """Создание администратора (для разработки)"""
-    try:
-        data = request.get_json()
-        telegram_id = data.get('telegram_id')
-        
-        if not telegram_id:
-            return jsonify({'error': 'Telegram ID required'}), 400
-        
-        # Проверяем, существует ли пользователь
-        user = User.query.filter_by(telegram_id=telegram_id).first()
-        
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        # Делаем пользователя админом
-        user.is_admin = True
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': f'User {user.first_name} {user.last_name} is now admin',
-            'user': {
-                'id': user.id,
-                'telegram_id': user.telegram_id,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'is_admin': user.is_admin
-            }
-        })
-        
-    except Exception as e:
-        print(f"Error creating admin: {e}")
-        return jsonify({'error': 'Failed to create admin'}), 500
-
-
-
-if __name__ == '__main__':
-    # Создаем таблицы в базе данных
-    with app.app_context():
-        try:
-            # Проверяем, нужно ли пересоздать базу данных
-            import os
-            db_path = '/var/www/uk-mini-app/instance/uk_mini_app.db'  # Используем абсолютный путь
-            
-            # Создаем директорию instance если её нет
-            instance_dir = '/var/www/uk-mini-app/instance'
-            if not os.path.exists(instance_dir):
-                os.makedirs(instance_dir, mode=0o755)
-                print(f"Created directory: {instance_dir}")
-            
-            # Проверяем существование базы данных
-            if os.path.exists(db_path):
-                # Проверяем структуру таблицы complaint только если БД существует
-                try:
-                    from sqlalchemy import text
-                    result = db.session.execute(text("PRAGMA table_info(complaint)"))
-                    columns = [row[1] for row in result.fetchall()]
-                    
-                    # Если отсутствует колонка assigned_to_name, пересоздаем БД
-                    if 'assigned_to_name' not in columns:
-                        print("Database structure outdated, recreating...")
-                        os.remove(db_path)
-                        print("Old database removed")
-                        # Создаем новую БД
-                        db.create_all()
-                        print("Database tables created successfully")
-                    else:
-                        print("Database structure is up to date")
-                        # Просто создаем таблицы если их нет
-                        db.create_all()
-                        print("Database tables verified successfully")
-                except Exception as e:
-                    print(f"Error checking database structure: {e}")
-                    print("Recreating database...")
-                    if os.path.exists(db_path):
-                        os.remove(db_path)
-                    print("Old database removed")
-                    # Создаем новую БД
-                    db.create_all()
-                    print("Database tables created successfully")
-            else:
-                print("Database file not found, creating new one...")
-                # Создаем новую БД
-                db.create_all()
-                print("Database tables created successfully")
-            
-            # Устанавливаем правильные права на файл базы данных
-            if os.path.exists(db_path):
-                try:
-                    os.chmod(db_path, 0o666)
-                    print(f"Set permissions on database file: {db_path}")
-                except Exception as e:
-                    print(f"Warning: Could not set permissions on database file: {e}")
-                
-                # Также устанавливаем права на директорию
-                db_dir = os.path.dirname(db_path)
-                try:
-                    os.chmod(db_dir, 0o755)
-                    print(f"Set permissions on database directory: {db_dir}")
-                except Exception as e:
-                    print(f"Warning: Could not set permissions on database directory: {e}")
-            
-            # Создаем тестовые данные только если база данных доступна для записи
-            try:
-                # Проверяем, можем ли мы писать в базу данных
-                test_query = db.session.execute(text("SELECT 1"))
-                test_query.fetchone()
-                
-                # Создаем тестовые типы счетчиков
-                meter_types = [
-                    {'name': 'Электричество', 'code': 'electricity', 'unit': 'кВт·ч'},
-                    {'name': 'Холодная вода', 'code': 'cold_water', 'unit': 'м³'},
-                    {'name': 'Горячая вода', 'code': 'hot_water', 'unit': 'м³'},
-                    {'name': 'Газ', 'code': 'gas', 'unit': 'м³'},
-                    {'name': 'Отопление', 'code': 'heating', 'unit': 'Гкал'}
-                ]
-                
-                for mt_data in meter_types:
-                    existing = MeterType.query.filter_by(code=mt_data['code']).first()
-                    if not existing:
-                        meter_type = MeterType(**mt_data)
-                        db.session.add(meter_type)
-                
-                # Создаем тестовые категории обращений
-                complaint_categories = [
-                    {'name': 'Сантехника', 'code': 'plumbing', 'description': 'Проблемы с водоснабжением, канализацией'},
-                    {'name': 'Электрика', 'code': 'electricity', 'description': 'Проблемы с электричеством'},
-                    {'name': 'Отопление', 'code': 'heating', 'description': 'Проблемы с отоплением'},
-                    {'name': 'Уборка', 'code': 'cleaning', 'description': 'Проблемы с уборкой подъездов'},
-                    {'name': 'Шум', 'code': 'noise', 'description': 'Жалобы на шум'},
-                    {'name': 'Лифт', 'code': 'elevator', 'description': 'Проблемы с лифтом'},
-                    {'name': 'Ремонт', 'code': 'repair', 'description': 'Общие вопросы ремонта'},
-                    {'name': 'Общие вопросы', 'code': 'general', 'description': 'Другие вопросы'}
-                ]
-                
-                for cat_data in complaint_categories:
-                    existing = ComplaintCategory.query.filter_by(code=cat_data['code']).first()
-                    if not existing:
-                        category = ComplaintCategory(**cat_data)
-                        db.session.add(category)
-                
-                db.session.commit()
-                print("Test data initialized successfully")
-                
-            except Exception as e:
-                print(f"Warning: Could not initialize test data (database may be read-only): {e}")
-                print("Application will continue without test data")
-                # Откатываем сессию в случае ошибки
-                db.session.rollback()
-            
-        except Exception as e:
-            print(f"Error during database initialization: {e}")
-            import traceback
-            traceback.print_exc()
-            # Продолжаем запуск приложения даже при ошибке БД
-
 # Telegram Bot обработчики
 @app.route('/webhook/telegram', methods=['POST'])
 def telegram_webhook():
@@ -1990,6 +1844,67 @@ def send_telegram_message_with_markup(chat_id, message, reply_markup, parse_mode
         print(f"❌ Ошибка отправки сообщения: {e}")
         return False
 
+@app.route('/api/admin/create', methods=['POST'])
+def create_admin():
+    """Создание администратора (для разработки)"""
+    try:
+        data = request.get_json()
+        telegram_id = data.get('telegram_id')
+        
+        if not telegram_id:
+            return jsonify({'error': 'Telegram ID required'}), 400
+        
+        # Проверяем, существует ли пользователь
+        user = User.query.filter_by(telegram_id=telegram_id).first()
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Делаем пользователя админом
+        user.is_admin = True
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'User {user.first_name} {user.last_name} is now admin',
+            'user': {
+                'id': user.id,
+                'telegram_id': user.telegram_id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_admin': user.is_admin
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error creating admin: {e}")
+        return jsonify({'error': 'Failed to create admin'}), 500
 
+
+
+if __name__ == '__main__':
+    # Создаем директорию instance если её нет
+    import os
+    instance_dir = '/var/www/uk-mini-app/instance'
+    if not os.path.exists(instance_dir):
+        os.makedirs(instance_dir, mode=0o755)
+        print(f"Created directory: {instance_dir}")
     
-    app.run(debug=True, host='0.0.0.0', port=8000) 
+    # Устанавливаем права на директорию instance
+    try:
+        os.chmod(instance_dir, 0o755)
+        print(f"Set permissions on database directory: {instance_dir}")
+    except Exception as e:
+        print(f"Warning: Could not set permissions on database directory: {e}")
+    
+    # Устанавливаем права на файл БД если он существует
+    db_path = '/var/www/uk-mini-app/instance/uk_mini_app.db'
+    if os.path.exists(db_path):
+        try:
+            os.chmod(db_path, 0o666)
+            print(f"Set permissions on database file: {db_path}")
+        except Exception as e:
+            print(f"Warning: Could not set permissions on database file: {e}")
+    
+    print("Starting Flask application...")
+    app.run(debug=False, host='0.0.0.0', port=8000) 

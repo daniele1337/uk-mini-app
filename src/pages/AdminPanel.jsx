@@ -6,7 +6,7 @@ import {
   Filter, 
   Search, 
   Reply, 
-  CheckCircle, 
+  CheckCircle,
   Clock, 
   AlertCircle,
   FileText,
@@ -130,7 +130,7 @@ const AdminPanel = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Заголовок */}
+        {/* Заголовок */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
@@ -142,10 +142,10 @@ const AdminPanel = () => {
               <span className="text-sm text-gray-500">
                 Администратор: {user.first_name} {user.last_name}
               </span>
-            </div>
+        </div>
           </div>
         </div>
-      </div>
+                </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Статистика */}
@@ -159,26 +159,26 @@ const AdminPanel = () => {
                 <p className="text-sm font-medium text-gray-600">Всего обращений</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
+              </div>
             </div>
-          </div>
-          
+            
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="p-2 bg-yellow-100 rounded-lg">
                 <Clock className="w-6 h-6 text-yellow-600" />
-              </div>
+                </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Ожидают ответа</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
               </div>
+              </div>
             </div>
-          </div>
-          
+            
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
                 <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
+                </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Решено</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.resolved}</p>
@@ -194,29 +194,29 @@ const AdminPanel = () => {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
+                  <button 
                 onClick={() => exportData('complaints')}
                 className="flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+                  >
                 <FileText className="w-5 h-5 text-gray-600" />
                 <span className="text-sm font-medium">Обращения</span>
-              </button>
+                  </button>
               
-              <button
+                  <button 
                 onClick={() => exportData('users')}
                 className="flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+                  >
                 <Users className="w-5 h-5 text-gray-600" />
                 <span className="text-sm font-medium">Пользователи</span>
-              </button>
+                  </button>
               
-              <button
+                  <button 
                 onClick={() => exportData('meters')}
                 className="flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+                  >
                 <Building className="w-5 h-5 text-gray-600" />
                 <span className="text-sm font-medium">Показания счетчиков</span>
-              </button>
+                  </button>
             </div>
           </div>
         </div>
@@ -237,7 +237,7 @@ const AdminPanel = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   onClick={() => setFilter('all')}
@@ -311,7 +311,7 @@ const AdminPanel = () => {
                         <span>От: {complaint.user_name}</span>
                         <span className="mx-2">•</span>
                         <span>{new Date(complaint.created_at).toLocaleDateString()}</span>
-                      </div>
+                    </div>
                     </div>
                     
                     <div className="flex gap-2">
@@ -330,8 +330,8 @@ const AdminPanel = () => {
                         Ответить
                       </button>
                     </div>
-                  </div>
-                  
+            </div>
+            
                   {/* Форма ответа */}
                   {selectedComplaint === complaint.id && (
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -359,10 +359,10 @@ const AdminPanel = () => {
                         >
                           {replying ? 'Отправка...' : 'Отправить'}
                         </button>
-                      </div>
-                    </div>
-                  )}
-                  
+            </div>
+          </div>
+        )}
+
                   {/* Существующие ответы */}
                   {complaint.replies && complaint.replies.length > 0 && (
                     <div className="mt-4">
@@ -375,13 +375,13 @@ const AdminPanel = () => {
                           </p>
                         </div>
                       ))}
-                    </div>
-                  )}
+          </div>
+        )}
                 </div>
               ))}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+          </div>
       </div>
     </div>
   );
