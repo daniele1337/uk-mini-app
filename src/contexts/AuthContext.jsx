@@ -39,12 +39,38 @@ export const AuthProvider = ({ children }) => {
         console.error('Error parsing saved user data:', error);
         logout();
       }
+    } else {
+      // Если нет сохраненной авторизации, проверяем Telegram WebApp
+      checkTelegramWebApp();
     }
     setIsLoading(false);
   }, []);
 
+  const checkTelegramWebApp = async () => {
+    try {
+      // Проверяем, есть ли данные от Telegram Web App
+      if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        console.log('🔍 Проверяем Telegram WebApp данные...');
+        
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+          console.log('✅ Найдены данные пользователя в Telegram WebApp, авторизуемся автоматически');
+          await loginWithTelegram(tg.initDataUnsafe.user);
+        } else {
+          console.log('❌ Данные пользователя не найдены в Telegram WebApp');
+        }
+      } else {
+        console.log('🌐 Не в Telegram WebApp');
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при проверке Telegram WebApp:', error);
+    }
+  };
+
   const loginWithTelegram = async (telegramUser) => {
     try {
+      console.log('🔐 Начинаем авторизацию с данными:', telegramUser);
+      
       // Отправляем данные на сервер для авторизации
       const response = await fetch('/api/auth/telegram', {
         method: 'POST',
@@ -58,6 +84,8 @@ export const AuthProvider = ({ children }) => {
         const data = await response.json();
         
         if (data.success) {
+          console.log('✅ Авторизация успешна, сохраняем данные');
+          
           // Сохраняем токен и данные пользователя
           setToken(data.token);
           setUser(data.user);
@@ -73,15 +101,18 @@ export const AuthProvider = ({ children }) => {
           throw new Error(data.error || 'Ошибка авторизации');
         }
       } else {
-        throw new Error('Ошибка подключения к серверу');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Ошибка подключения к серверу');
       }
     } catch (error) {
-      console.error('Telegram auth error:', error);
+      console.error('❌ Telegram auth error:', error);
       throw error;
     }
   };
 
   const logout = () => {
+    console.log('🚪 Выход из системы');
+    
     // Сначала очищаем localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');

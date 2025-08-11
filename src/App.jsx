@@ -11,15 +11,7 @@ import { useAuth } from './contexts/AuthContext'
 import './App.css'
 
 function AppContent() {
-  const { user, isLoading, isAuthenticated } = useAuth()
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  useEffect(() => {
-    // Проверка на админа (в реальном приложении - через API)
-    if (user && user.telegram_id === '123456789') {
-      setIsAdmin(true)
-    }
-  }, [user])
+  const { user, isLoading, isAuthenticated, isAdmin } = useAuth()
 
   if (isLoading) {
     return (

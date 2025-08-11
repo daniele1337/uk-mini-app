@@ -19,9 +19,14 @@ const Login = () => {
       console.log('👤 Пользователь:', tg.initDataUnsafe?.user);
       
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        console.log('✅ Найдены данные пользователя, авторизуемся...');
+        console.log('✅ Найдены данные пользователя, авторизуемся автоматически...');
         handleTelegramAuth(tg.initDataUnsafe.user);
+      } else {
+        console.log('❌ Данные пользователя не найдены в Telegram WebApp');
+        // Показываем страницу логина только если нет данных пользователя
       }
+    } else {
+      console.log('🌐 Не в Telegram WebApp, показываем страницу логина');
     }
   }, []);
 
@@ -30,10 +35,12 @@ const Login = () => {
     setError('');
 
     try {
+      console.log('🔐 Начинаем авторизацию с данными:', userData);
       await loginWithTelegram(userData);
+      console.log('✅ Авторизация успешна');
     } catch (error) {
+      console.error('❌ Ошибка авторизации:', error);
       setError('Ошибка авторизации. Попробуйте еще раз.');
-      console.error('Auth error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +73,29 @@ const Login = () => {
     window.open('https://t.me/jkhtestbot1337_bot/app', '_blank');
   };
 
+  // Если пользователь уже авторизован, не показываем страницу логина
   if (isAuthenticated) {
     return null; // Перенаправление обрабатывается в App.jsx
+  }
+
+  // Если мы в Telegram WebApp и загружаемся, показываем индикатор загрузки
+  if (window.Telegram && window.Telegram.WebApp && isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Home className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">
+            УК Mini App
+          </h1>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            Авторизация в Telegram...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
