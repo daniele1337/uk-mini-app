@@ -1,0 +1,28 @@
+[Unit]
+Description=UK Mini App Quiet Update Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/uk-mini-app
+ExecStart=/var/www/uk-mini-app/quiet_update.sh monitor
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Ограничения ресурсов
+MemoryMax=512M
+CPUQuota=50%
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/uk-mini-app /var/www/backups /var/log /tmp
+
+[Install]
+WantedBy=multi-user.target

@@ -27,6 +27,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8172377647:AAE6MS5TBL-tZKBWs1A3WPECef48cl_SgnU')
 TELEGRAM_BOT_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
+# GigaChat конфигурация
+GIGACHAT_AUTH_KEY = 'ZWJjZTNlMGQtNDQ0YS00NWRhLWE3MGMtY2Y4ODQ0MjNhNzM4OmIzM2FiZTkxLWU5YjMtNDdhZi1hMjM2LTNjMDBhYWYzMTlmNg=='
+GIGACHAT_CLIENT_ID = 'ebce3e0d-444a-45da-a70c-cf884423a738'
+GIGACHAT_SCOPE = 'GIGACHAT_API_PERS'
+GIGACHAT_AUTH_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
+GIGACHAT_API_URL = 'https://gigachat.devices.sberbank.ru'
+
 CORS(app)
 db = SQLAlchemy(app)
 
@@ -1880,6 +1887,148 @@ def create_admin():
         print(f"Error creating admin: {e}")
         return jsonify({'error': 'Failed to create admin'}), 500
 
+
+# GigaChat API endpoints
+def get_gigachat_token():
+    """Получение токена доступа для GigaChat"""
+    try:
+        import uuid
+        rq_uid = str(uuid.uuid4())
+        
+        response = requests.post(
+            GIGACHAT_AUTH_URL,
+            headers={
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+                'RqUID': rq_uid,
+                'Authorization': f'Basic {GIGACHAT_AUTH_KEY}'
+            },
+            data={
+                'scope': GIGACHAT_SCOPE
+            },
+            verify=False  # Отключаем проверку SSL для dev сервера
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('access_token')
+        else:
+            print(f"GigaChat auth error: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"Error getting GigaChat token: {e}")
+        return None
+
+
+@app.route('/api/gigachat/chat', methods=['POST'])
+def gigachat_chat():
+    """Отправка сообщения в GigaChat"""
+    try:
+        data = request.get_json()
+        message = data.get('message')
+        conversation_history = data.get('conversation_history', [])
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        # Получаем токен
+        token = get_gigachat_token()
+        if not token:
+            return jsonify({'error': 'Failed to get GigaChat token'}), 500
+        
+        # Формируем системный промпт для ЖКХ
+        system_prompt = """Ты - опытный сотрудник ЖКХ с многолетним стажем работы в сфере жилищно-коммунального хозяйства. Твоя задача - профессионально консультировать жильцов по всем вопросам ЖКХ.
+
+Ты специализируешься на:
+- Управлении многоквартирными домами и работе управляющих компаний
+- Коммунальных услугах, их тарификации и правильной оплате
+- Капитальном и текущем ремонте общего имущества
+- Организации и проведении общих собраний собственников
+- Содержании и ремонте общего имущества МКД
+- Жилищном законодательстве РФ и ЖК РФ
+- Решении конфликтов между жильцами и УК
+- Контроле качества предоставляемых услуг
+
+Отвечай как опытный специалист ЖКХ - профессионально, но доступно. Используй актуальное законодательство РФ. Если вопрос требует детального изучения документов или выезда специалиста, рекомендую обратиться в управляющую компанию или к юристу."""
+        
+        # Формируем сообщения для API
+        messages = [
+            {'role': 'system', 'content': system_prompt}
+        ]
+        
+        # Добавляем историю диалога
+        for msg in conversation_history:
+            messages.append({
+                'role': 'user' if msg.get('sender') == 'user' else 'assistant',
+                'content': msg.get('text', '')
+            })
+        
+        # Добавляем текущее сообщение
+        messages.append({
+            'role': 'user',
+            'content': message
+        })
+        
+        # Отправляем запрос к GigaChat
+        response = requests.post(
+            f'{GIGACHAT_API_URL}/api/v1/chat/completions',
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {token}'
+            },
+            json={
+                'model': 'GigaChat:latest',
+                'messages': messages,
+                'temperature': 0.7,
+                'max_tokens': 1000,
+                'stream': False
+            },
+            verify=False
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            ai_response = data['choices'][0]['message']['content']
+            return jsonify({
+                'success': True,
+                'response': ai_response
+            })
+        else:
+            print(f"GigaChat API error: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to get response from GigaChat'}), 500
+            
+    except Exception as e:
+        print(f"Error in gigachat_chat: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/gigachat/status', methods=['GET'])
+def gigachat_status():
+    """Проверка статуса подключения к GigaChat"""
+    try:
+        token = get_gigachat_token()
+        if not token:
+            return jsonify({'status': 'error', 'message': 'Failed to get token'})
+        
+        response = requests.get(
+            f'{GIGACHAT_API_URL}/api/v1/models',
+            headers={
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {token}'
+            },
+            verify=False
+        )
+        
+        if response.status_code == 200:
+            return jsonify({'status': 'connected', 'message': 'GigaChat API is available'})
+        else:
+            return jsonify({'status': 'error', 'message': 'GigaChat API is not available'})
+            
+    except Exception as e:
+        print(f"Error checking GigaChat status: {e}")
+        return jsonify({'status': 'error', 'message': str(e)})
 
 
 if __name__ == '__main__':

@@ -33,9 +33,39 @@ create_backup() {
     fi
 }
 
-# Функция остановки сервисов
-stop_services() {
-    log "🛑 Остановка сервисов..."
+# Функция мягкой перезагрузки сервисов (без остановки)
+soft_restart_services() {
+    log "🔄 Мягкая перезагрузка сервисов..."
+    
+    # Перезагружаем PM2 процессы без остановки
+    if command -v pm2 &> /dev/null; then
+        cd "$PROJECT_DIR"
+        
+        # Перезагружаем backend если он запущен
+        if pm2 list | grep -q "uk-mini-app-backend"; then
+            pm2 reload uk-mini-app-backend
+            log "✅ Backend перезагружен"
+        fi
+        
+        # Перезагружаем frontend если он запущен
+        if pm2 list | grep -q "uk-mini-app-frontend"; then
+            pm2 reload uk-mini-app-frontend
+            log "✅ Frontend перезагружен"
+        fi
+        
+        pm2 save
+    fi
+    
+    # Перезагружаем nginx конфигурацию
+    if systemctl is-active --quiet nginx; then
+        nginx -t && systemctl reload nginx
+        log "✅ Nginx конфигурация перезагружена"
+    fi
+}
+
+# Функция принудительной перезагрузки сервисов (только при необходимости)
+force_restart_services() {
+    log "🔄 Принудительная перезагрузка сервисов..."
     
     # Останавливаем PM2 процессы
     if command -v pm2 &> /dev/null; then
@@ -46,11 +76,6 @@ stop_services() {
     
     # Останавливаем nginx если нужно
     systemctl stop nginx 2>/dev/null && log "✅ Nginx остановлен"
-}
-
-# Функция запуска сервисов
-start_services() {
-    log "🚀 Запуск сервисов..."
     
     # Запускаем nginx
     systemctl start nginx 2>/dev/null && log "✅ Nginx запущен"
@@ -69,28 +94,39 @@ update_dependencies() {
     log "📦 Обновление зависимостей..."
     
     # Backend зависимости
-    if [ -f "$PROJECT_DIR/backend/requirements.txt" ]; then
-        cd "$PROJECT_DIR/backend"
+    if [ -f "$PROJECT_DIR/requirements.txt" ]; then
+        cd "$PROJECT_DIR"
         pip3 install -r requirements.txt --upgrade
         log "✅ Python зависимости обновлены"
     fi
     
-    # Frontend зависимости
-    if [ -f "$PROJECT_DIR/frontend/package.json" ]; then
-        cd "$PROJECT_DIR/frontend"
-        npm install --production
-        npm run build
-        log "✅ Node.js зависимости обновлены и проект собран"
+    # Frontend зависимости (только если изменились package.json или package-lock.json)
+    if [ -f "$PROJECT_DIR/package.json" ]; then
+        cd "$PROJECT_DIR"
+        
+        # Проверяем, изменились ли зависимости
+        if git diff --name-only HEAD~1 | grep -E "(package\.json|package-lock\.json)" > /dev/null; then
+            log "📦 Обнаружены изменения в зависимостях frontend"
+            npm install --production
+            npm run build
+            log "✅ Node.js зависимости обновлены и проект собран"
+        else
+            log "✅ Зависимости frontend не изменились"
+        fi
     fi
 }
 
 # Функция обновления базы данных
 update_database() {
-    log "🗄️ Обновление базы данных..."
+    log "🗄️ Проверка обновлений базы данных..."
     
-    if [ -f "$PROJECT_DIR/backend/app.py" ]; then
-        cd "$PROJECT_DIR/backend"
-        python3 -c "
+    if [ -f "$PROJECT_DIR/app.py" ]; then
+        cd "$PROJECT_DIR"
+        
+        # Проверяем, изменились ли файлы, связанные с БД
+        if git diff --name-only HEAD~1 | grep -E "(app\.py|models|migrations)" > /dev/null; then
+            log "🗄️ Обнаружены изменения в структуре БД"
+            python3 -c "
 import sys
 sys.path.append('.')
 from app import app, db
@@ -98,7 +134,10 @@ with app.app_context():
     db.create_all()
     print('База данных обновлена')
 "
-        log "✅ База данных обновлена"
+            log "✅ База данных обновлена"
+        else
+            log "✅ Структура БД не изменилась"
+        fi
     fi
 }
 
@@ -123,6 +162,51 @@ check_changes() {
     else
         log "✅ Изменений не найдено"
         return 1
+    fi
+}
+
+# Функция определения типа изменений
+analyze_changes() {
+    log "🔍 Анализ типа изменений..."
+    
+    cd "$PROJECT_DIR"
+    
+    # Получаем список измененных файлов
+    CHANGED_FILES=$(git diff --name-only HEAD~1)
+    
+    # Проверяем критические изменения
+    CRITICAL_CHANGES=false
+    
+    # Изменения в конфигурации серверов
+    if echo "$CHANGED_FILES" | grep -E "(ecosystem\.config\.js|nginx.*\.conf|\.env)" > /dev/null; then
+        log "⚠️ Обнаружены изменения в конфигурации серверов"
+        CRITICAL_CHANGES=true
+    fi
+    
+    # Изменения в системных файлах
+    if echo "$CHANGED_FILES" | grep -E "(app\.py|main\.py|server\.py)" > /dev/null; then
+        log "⚠️ Обнаружены изменения в основных файлах приложения"
+        CRITICAL_CHANGES=true
+    fi
+    
+    # Изменения в зависимостях
+    if echo "$CHANGED_FILES" | grep -E "(requirements\.txt|package\.json)" > /dev/null; then
+        log "⚠️ Обнаружены изменения в зависимостях"
+        CRITICAL_CHANGES=true
+    fi
+    
+    # Изменения в структуре БД
+    if echo "$CHANGED_FILES" | grep -E "(models|migrations)" > /dev/null; then
+        log "⚠️ Обнаружены изменения в структуре БД"
+        CRITICAL_CHANGES=true
+    fi
+    
+    if [ "$CRITICAL_CHANGES" = true ]; then
+        log "🔄 Требуется полная перезагрузка сервисов"
+        return 1
+    else
+        log "✅ Только некритические изменения - мягкая перезагрузка"
+        return 0
     fi
 }
 
@@ -153,8 +237,8 @@ update_project() {
     # Создаем бэкап
     create_backup
     
-    # Останавливаем сервисы
-    stop_services
+    # Сохраняем текущий коммит для анализа изменений
+    OLD_COMMIT=$(git rev-parse HEAD)
     
     # Обновляем код
     log "📥 Обновление кода с GitHub..."
@@ -166,18 +250,23 @@ update_project() {
         log "✅ Код обновлен"
     else
         log "❌ Ошибка обновления кода"
-        start_services
         return 1
     fi
     
-    # Обновляем зависимости
-    update_dependencies
-    
-    # Обновляем базу данных
-    update_database
-    
-    # Запускаем сервисы
-    start_services
+    # Анализируем тип изменений
+    if analyze_changes; then
+        # Мягкая перезагрузка
+        log "🔄 Выполняем мягкую перезагрузку..."
+        update_dependencies
+        update_database
+        soft_restart_services
+    else
+        # Полная перезагрузка
+        log "🔄 Выполняем полную перезагрузку..."
+        update_dependencies
+        update_database
+        force_restart_services
+    fi
     
     log "🎉 Обновление завершено успешно!"
     return 0
@@ -194,7 +283,11 @@ rollback() {
         log "📦 Восстанавливаем из бэкапа: $(basename "$LATEST_BACKUP")"
         
         # Останавливаем сервисы
-        stop_services
+        if command -v pm2 &> /dev/null; then
+            pm2 stop uk-mini-app-backend 2>/dev/null
+            pm2 stop uk-mini-app-frontend 2>/dev/null
+        fi
+        systemctl stop nginx 2>/dev/null
         
         # Удаляем текущую директорию
         rm -rf "$PROJECT_DIR"
@@ -203,7 +296,12 @@ rollback() {
         tar -xzf "$LATEST_BACKUP" -C "$(dirname "$PROJECT_DIR")"
         
         # Запускаем сервисы
-        start_services
+        systemctl start nginx 2>/dev/null
+        if command -v pm2 &> /dev/null; then
+            cd "$PROJECT_DIR"
+            pm2 start ecosystem.config.js
+            pm2 save
+        fi
         
         log "✅ Откат завершен"
     else
@@ -238,13 +336,21 @@ case "${1:-update}" in
             git log --oneline -1
         fi
         ;;
+    "soft-restart")
+        soft_restart_services
+        ;;
+    "force-restart")
+        force_restart_services
+        ;;
     *)
-        echo "Использование: $0 {update|rollback|check|backup|status}"
-        echo "  update   - Обновить проект с GitHub"
-        echo "  rollback - Откатиться к предыдущей версии"
-        echo "  check    - Проверить наличие изменений"
-        echo "  backup   - Создать резервную копию"
-        echo "  status   - Показать статус проекта"
+        echo "Использование: $0 {update|rollback|check|backup|status|soft-restart|force-restart}"
+        echo "  update        - Обновить проект с GitHub"
+        echo "  rollback      - Откатиться к предыдущей версии"
+        echo "  check         - Проверить наличие изменений"
+        echo "  backup        - Создать резервную копию"
+        echo "  status        - Показать статус проекта"
+        echo "  soft-restart  - Мягкая перезагрузка сервисов"
+        echo "  force-restart - Принудительная перезагрузка сервисов"
         exit 1
         ;;
 esac

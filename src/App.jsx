@@ -7,6 +7,7 @@ import Meters from './pages/Meters'
 import Complaints from './pages/Complaints'
 import AdminPanel from './pages/AdminPanel'
 import Login from './pages/Login'
+import AIChat from './components/AIChat'
 import { useAuth } from './contexts/AuthContext'
 import './App.css'
 
@@ -37,6 +38,7 @@ function AppContent() {
           <Route path="/admin" element={isAuthenticated && isAdmin ? <AdminPanel /> : <Navigate to="/" replace />} />
         </Routes>
       </main>
+      {isAuthenticated && <AIChat />}
     </div>
   )
 }
