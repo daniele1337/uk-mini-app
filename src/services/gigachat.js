@@ -39,14 +39,12 @@ class GigaChatService {
   // Проверка доступности API
   async checkAvailability() {
     try {
-      const token = await this.getAccessToken()
-      const response = await fetch(`${this.baseUrl}/api/v1/models`, {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      return response.ok
+      const response = await fetch(`${this.apiUrl}/status`)
+      if (response.ok) {
+        const data = await response.json()
+        return data.status === 'connected'
+      }
+      return false
     } catch (error) {
       console.error('Ошибка проверки доступности:', error)
       return false

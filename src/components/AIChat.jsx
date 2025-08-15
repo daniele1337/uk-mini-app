@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Bot, Send, X, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react'
+import gigaChatService from '../services/gigachat'
 
 const AIChat = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [isConnected, setIsConnected] = useState(true) // Пока считаем подключенным
-  const [connectionStatus, setConnectionStatus] = useState('connected')
+  const [isConnected, setIsConnected] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState('checking')
   const messagesEndRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -18,22 +19,40 @@ const AIChat = () => {
     scrollToBottom()
   }, [messages])
 
-  // Добавляем приветственное сообщение при первом открытии
+  // Проверка подключения к GigaChat при открытии чата
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      const welcomeMessage = {
-        id: Date.now(),
-        text: 'Здравствуйте! Я опытный сотрудник ЖКХ с многолетним стажем. Могу проконсультировать вас по всем вопросам жилищно-коммунального хозяйства: управление МКД, коммунальные услуги, ремонт, собрания собственников, жилищное законодательство и многое другое. Задавайте ваши вопросы!',
-        sender: 'ai',
-        timestamp: new Date()
-      }
-      setMessages([welcomeMessage])
+    if (isOpen && connectionStatus === 'checking') {
+      checkConnection()
     }
   }, [isOpen])
 
+  const checkConnection = async () => {
+    try {
+      setConnectionStatus('checking')
+      const isAvailable = await gigaChatService.checkAvailability()
+      setIsConnected(isAvailable)
+      setConnectionStatus(isAvailable ? 'connected' : 'error')
+      
+      if (isAvailable && messages.length === 0) {
+        // Добавляем приветственное сообщение
+        const welcomeMessage = {
+          id: Date.now(),
+          text: 'Здравствуйте! Я опытный сотрудник ЖКХ с многолетним стажем. Могу проконсультировать вас по всем вопросам жилищно-коммунального хозяйства: управление МКД, коммунальные услуги, ремонт, собрания собственников, жилищное законодательство и многое другое. Задавайте ваши вопросы!',
+          sender: 'ai',
+          timestamp: new Date()
+        }
+        setMessages([welcomeMessage])
+      }
+    } catch (error) {
+      console.error('Ошибка проверки подключения:', error)
+      setIsConnected(false)
+      setConnectionStatus('error')
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() || !isConnected) return
 
     const userMessage = {
       id: Date.now(),
@@ -47,17 +66,20 @@ const AIChat = () => {
     setIsTyping(true)
 
     try {
-      // Имитация ответа ИИ (временно)
-      setTimeout(() => {
-        const aiResponse = {
-          id: Date.now() + 1,
-          text: `Спасибо за ваш вопрос: "${newMessage}". Как опытный сотрудник ЖКХ, я готов помочь вам с этим вопросом. Пожалуйста, уточните детали для более точного ответа.`,
-          sender: 'ai',
-          timestamp: new Date()
-        }
-        setMessages(prev => [...prev, aiResponse])
-        setIsTyping(false)
-      }, 2000)
+      // Получаем историю диалога для контекста
+      const conversationHistory = messages.filter(msg => msg.sender !== 'ai' || !msg.text.includes('Здравствуйте! Я опытный сотрудник ЖКХ'))
+      
+      // Отправляем сообщение в GigaChat
+      const aiResponse = await gigaChatService.sendMessage(newMessage, conversationHistory)
+      
+      const aiMessage = {
+        id: Date.now() + 1,
+        text: aiResponse,
+        sender: 'ai',
+        timestamp: new Date()
+      }
+      
+      setMessages(prev => [...prev, aiMessage])
     } catch (error) {
       console.error('Ошибка получения ответа:', error)
       
@@ -70,6 +92,7 @@ const AIChat = () => {
       }
       
       setMessages(prev => [...prev, errorMessage])
+    } finally {
       setIsTyping(false)
     }
   }
@@ -134,6 +157,15 @@ const AIChat = () => {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              {connectionStatus === 'error' && (
+                <button
+                  onClick={checkConnection}
+                  className="text-purple-100 hover:text-white p-1"
+                  title="Переподключиться"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-purple-100 hover:text-white"
@@ -202,13 +234,13 @@ const AIChat = () => {
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Задайте ваш вопрос..."
-                disabled={isTyping}
+                placeholder={isConnected ? "Задайте ваш вопрос..." : "Подключение к специалисту..."}
+                disabled={!isConnected || isTyping}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
-                disabled={!newMessage.trim() || isTyping}
+                disabled={!newMessage.trim() || !isConnected || isTyping}
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
               >
                 <Send className="w-4 h-4" />
